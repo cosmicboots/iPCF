@@ -4,13 +4,29 @@
 
 (** Tokens *)
 type t =
-  | Lparen
-  | Rparen
-  | Backslash
-  | Dot
+  | EOF
   | Comma
   | Ident of string
-  | EOF
+  (* Bools *)
+  | True
+  | False
+  (* Natural numbers *)
+  | Zero
+  | Succ
+  | Pred
+  (* Paranthesis *)
+  | Lparen
+  | Rparen
+  (* Lambda *)
+  | Backslash
+  | Dot
+  (* Box / Keywords *)
+  | Box
+  | Fix
+  | Let
+  | In
+  | Lt (* < *)
+  | Dash (* - *)
 [@@deriving show]
 
 (** [string_of_chars s] returns a string from a list of [s] characters *)
@@ -35,17 +51,34 @@ let is_alphanum c = is_alpha c || is_digit c
 let lex s =
   let rec f tokens = function
     | [] -> List.rev (EOF :: tokens)
+    (* Bools *)
+    | 't' :: 'r' :: 'u' :: 'e' :: s -> f (True :: tokens) s
+    | 'f' :: 'a' :: 'l' :: 's' :: 'e' :: s -> f (False :: tokens) s
+    (* Natural numbers *)
+    | 'z' :: 'e' :: 'r' :: 'o' :: s -> f (Zero :: tokens) s
+    | '0' :: s -> f (Zero :: tokens) s
+    | 's' :: 'u' :: 'c' :: 'c' :: s -> f (Succ :: tokens) s
+    | 'p' :: 'r' :: 'e' :: 'd' :: s -> f (Pred :: tokens) s
+    (* Lambda *)
     | '\\' :: s -> f (Backslash :: tokens) s
     | '.' :: s -> f (Dot :: tokens) s
+    (* Box / Keywords *)
+    | 'b' :: 'o' :: 'x' :: s -> f (Box :: tokens) s
+    | 'f' :: 'i' :: 'x' :: s -> f (Fix :: tokens) s
+    | 'l' :: 'e' :: 't' :: s -> f (Let :: tokens) s
+    | 'i' :: 'n' :: s -> f (In :: tokens) s
+    | '<' :: s -> f (Lt :: tokens) s
+    | '-' :: s -> f (Dash :: tokens) s
+    (* Other *)
     | ',' :: s -> f (Comma :: tokens) s
     | '(' :: s -> f (Lparen :: tokens) s
     | ')' :: s -> f (Rparen :: tokens) s
     | ' ' :: s | '\n' :: s -> f tokens s (* drop spaces *)
     | c :: s when is_alpha c ->
       let rec g acc = function
-        | c :: s when c = ' ' || c = '\n' ->
+        | c :: s when c = ' ' || c = '\n' || c = '.' ->
           ( Ident (string_of_chars @@ List.rev acc)
-          , c :: s (* space or newline completes ident *) )
+          , c :: s (* characters that complete ident *) )
         | c :: s when is_alphanum c -> g (c :: acc) s
         | cs ->
           raise
@@ -61,9 +94,19 @@ let lex s =
 ;;
 
 let%expect_test "lexer" =
-  Printf.printf "%s" @@ [%derive.show: t list] @@ lex "\\ x . y z () .";
+  Printf.printf "%s"
+  @@ [%derive.show: t list]
+  @@ lex
+       {|
+    \ x . z ()
+    longIdent1 .
+    true false
+    let in box <-
+    zero 0 succ pred |};
   [%expect
     {|
-    [Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot; (Lexer.Ident "y");
-      (Lexer.Ident "z"); Lexer.Lparen; Lexer.Rparen; Lexer.Dot; Lexer.EOF] |}]
+    [Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot; (Lexer.Ident "z");
+      Lexer.Lparen; Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
+      Lexer.True; Lexer.False; Lexer.Let; Lexer.In; Lexer.Box; Lexer.Lt;
+      Lexer.Dash; Lexer.Zero; Lexer.Zero; Lexer.Succ; Lexer.Pred; Lexer.EOF] |}]
 ;;
