@@ -63,6 +63,11 @@ let lex s =
     | '\\' :: s -> f (Backslash :: tokens) s
     | '.' :: s -> f (Dot :: tokens) s
     (* Box / Keywords *)
+    (*
+       Syntax examples:
+       let box u <- M in N
+       fix z in M
+    *)
     | 'b' :: 'o' :: 'x' :: s -> f (Box :: tokens) s
     | 'f' :: 'i' :: 'x' :: s -> f (Fix :: tokens) s
     | 'l' :: 'e' :: 't' :: s -> f (Let :: tokens) s
@@ -101,12 +106,13 @@ let%expect_test "lexer" =
     \ x . z ()
     longIdent1 .
     true false
-    let in box <-
+    let in box <- fix
     zero 0 succ pred |};
   [%expect
     {|
     [Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot; (Lexer.Ident "z");
       Lexer.Lparen; Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
       Lexer.True; Lexer.False; Lexer.Let; Lexer.In; Lexer.Box; Lexer.Lt;
-      Lexer.Dash; Lexer.Zero; Lexer.Zero; Lexer.Succ; Lexer.Pred; Lexer.EOF] |}]
+      Lexer.Dash; Lexer.Fix; Lexer.Zero; Lexer.Zero; Lexer.Succ; Lexer.Pred;
+      Lexer.EOF] |}]
 ;;
