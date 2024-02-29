@@ -42,23 +42,33 @@ type 'a terms =
 (* TODO: Add context type definition here *)
 
 type 'a wrapped_token =
-  | Token of Lexer.t
+  | Tok of Lexer.t
   | PE of 'a terms
 [@@deriving show]
 
 let parse (input : Lexer.t list) =
-  let rec f s = function
-    | Lexer.EOF :: _ | [] -> s
-    | Lexer.True :: r -> f (PE (Var (Bool True)) :: s) r
-    | _ -> raise (Invalid_argument "Unexpected token when parsing")
+  let rec sr i = function
+    (* Reduction rules *)
+    | PE x :: PE y :: r -> sr i (PE (App (x, y)) :: r)
+    | PE body :: Tok Lexer.Dot :: Tok (Lexer.Ident _) :: r ->
+      sr i (PE (Abs (Some body)) :: r)
+    | r ->
+      (* Shift Rules rules *)
+      (match i with
+       | [] -> r
+       | Lexer.True :: i -> sr i (PE (Var (Bool True)) :: r)
+       | Lexer.False :: i -> sr i (PE (Var (Bool False)) :: r)
+       | Lexer.Zero :: i -> sr i (PE (Var (Nat Zero)) :: r)
+       | Lexer.Succ :: i -> sr i (PE (Var (Nat (Succ Zero))) :: r)
+       | _ -> raise (Invalid_argument "Unexpected token when parsing"))
   in
-  f [] input
+  sr input []
 ;;
 
 let%expect_test "parser" =
   Printf.printf
     "%s\n"
     ([%derive.show: ground_terms wrapped_token list]
-       (parse [ Lexer.True; Lexer.EOF ]));
-  [%expect {| [(Parser.PE (Parser.Var (Parser.Bool Parser.True)))] |}]
+       (parse [ Lexer.True; Lexer.False ]));
+  [%expect {| |}]
 ;;
