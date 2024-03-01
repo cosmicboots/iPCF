@@ -30,6 +30,7 @@ type ground_terms =
 type 'a terms =
   (* Basic lambda terms *)
   | Var of 'a
+  | Const of ground_terms
   | App of 'a terms * 'a terms
   | Abs of 'a option terms
   (* Boxed terms *)
@@ -39,6 +40,26 @@ type 'a terms =
   | Fix of 'a * 'a terms
 [@@deriving show]
 
+let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
+  fun f a ->
+  match a with
+  | Var x -> f x
+  | App (x, y) -> App (bind_terms f x, bind_terms f y)
+  | Abs r ->
+    let f' : 'a -> 'b = function
+      | None -> Var None
+      | Some x -> bind_terms (fun a -> Var (Some a)) (f x)
+    in
+    Abs (bind_terms f' r)
+  | _ -> raise (Invalid_argument "TODO")
+;;
+
+let capture ident term =
+  bind_terms
+    (fun y -> if String.equal ident y then Var None else Var (Some y))
+    term
+;;
+
 (* TODO: Add context type definition here *)
 
 type 'a wrapped_token =
@@ -47,28 +68,42 @@ type 'a wrapped_token =
 [@@deriving show]
 
 let parse (input : Lexer.t list) =
-  let rec sr i = function
+  let rec sr i s =
+    Printf.printf
+      "i: %s\nstack: %s\n\n"
+      ([%derive.show: Lexer.t list] i)
+      ([%derive.show: string wrapped_token list] s);
+    match s with
     (* Reduction rules *)
-    | PE x :: PE y :: r -> sr i (PE (App (x, y)) :: r)
-    | PE body :: Tok Lexer.Dot :: Tok (Lexer.Ident _) :: r ->
-      sr i (PE (Abs (Some body)) :: r)
+    | PE y :: PE x :: r -> sr i (PE (App (x, y)) :: r)
+    | PE body :: Tok Lexer.Dot :: PE (Var x) :: Tok Lexer.Backslash :: r ->
+      sr i (PE (Abs (capture x body)) :: r)
     | r ->
       (* Shift Rules rules *)
       (match i with
+       (*
+          Parsing is done when no reduction rules can be applied and the input
+          is empty
+       *)
        | [] -> r
-       | Lexer.True :: i -> sr i (PE (Var (Bool True)) :: r)
-       | Lexer.False :: i -> sr i (PE (Var (Bool False)) :: r)
-       | Lexer.Zero :: i -> sr i (PE (Var (Nat Zero)) :: r)
-       | Lexer.Succ :: i -> sr i (PE (Var (Nat (Succ Zero))) :: r)
-       | _ -> raise (Invalid_argument "Unexpected token when parsing"))
+       (* Ground types are complete expressions *)
+       | Lexer.True :: i -> sr i (PE (Const (Bool True)) :: r)
+       | Lexer.False :: i -> sr i (PE (Const (Bool False)) :: r)
+       | Lexer.Zero :: i -> sr i (PE (Const (Nat Zero)) :: r)
+       | Lexer.Succ :: i -> sr i (PE (Const (Nat (Succ Zero))) :: r)
+       | Lexer.Ident x :: i -> sr i (PE (Var x) :: r)
+       (* Move token to the stack *)
+       | t :: i -> sr i (Tok t :: r))
   in
   sr input []
 ;;
 
 let%expect_test "parser" =
+  let prog = {|\ x . \ y . x y|} in
+  let tokens = Lexer.lex prog in
   Printf.printf
-    "%s\n"
-    ([%derive.show: ground_terms wrapped_token list]
-       (parse [ Lexer.True; Lexer.False ]));
+    "Tokens: %s\nAST: %s\n"
+    ([%derive.show: Lexer.t list] tokens)
+    ([%derive.show: string wrapped_token list] (parse @@ tokens));
   [%expect {| |}]
 ;;
