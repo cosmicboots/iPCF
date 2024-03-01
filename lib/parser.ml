@@ -40,6 +40,8 @@ type 'a terms =
   | Fix of 'a * 'a terms
 [@@deriving show]
 
+(** [bind_terms f a] performs a monadic bind on the term [a] using the function
+    [f]. *)
 let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
   fun f a ->
   match a with
@@ -54,6 +56,7 @@ let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
   | _ -> raise (Invalid_argument "TODO")
 ;;
 
+(** [caapture ident term] captures all free occurences of [ident] in [term]. *)
 let capture ident term =
   bind_terms
     (fun y -> if String.equal ident y then Var None else Var (Some y))
@@ -69,15 +72,22 @@ type 'a wrapped_token =
 
 let parse (input : Lexer.t list) =
   let rec sr i s =
-    Printf.printf
-      "i: %s\nstack: %s\n\n"
-      ([%derive.show: Lexer.t list] i)
-      ([%derive.show: string wrapped_token list] s);
+    (*
+       Printf.printf
+       "i: %s\nstack: %s\n\n"
+       ([%derive.show: Lexer.t list] i)
+       ([%derive.show: string wrapped_token list] s);
+    *)
     match s with
     (* Reduction rules *)
     | PE y :: PE x :: r -> sr i (PE (App (x, y)) :: r)
-    | PE body :: Tok Lexer.Dot :: PE (Var x) :: Tok Lexer.Backslash :: r ->
-      sr i (PE (Abs (capture x body)) :: r)
+    | Tok Lexer.Rparen
+      :: PE body
+      :: Tok Lexer.Dot
+      :: PE (Var x)
+      :: Tok Lexer.Backslash
+      :: Tok Lexer.Lparen
+      :: r -> sr i (PE (Abs (capture x body)) :: r)
     | r ->
       (* Shift Rules rules *)
       (match i with
@@ -99,11 +109,19 @@ let parse (input : Lexer.t list) =
 ;;
 
 let%expect_test "parser" =
-  let prog = {|\ x . \ y . x y|} in
+  let prog = {|(\ x . (\ y . x y))|} in
   let tokens = Lexer.lex prog in
   Printf.printf
     "Tokens: %s\nAST: %s\n"
     ([%derive.show: Lexer.t list] tokens)
-    ([%derive.show: string wrapped_token list] (parse @@ tokens));
-  [%expect {| |}]
+    ([%derive.show: string wrapped_token list] (parse tokens));
+  [%expect
+    {|
+    Tokens: [Lexer.Lparen; Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot; Lexer.Lparen;
+      Lexer.Backslash; (Lexer.Ident "y"); Lexer.Dot; (Lexer.Ident "x");
+      (Lexer.Ident "y"); Lexer.Rparen; Lexer.Rparen]
+    AST: [(Parser.PE
+        (Parser.Abs
+           (Parser.Abs (Parser.App ((Parser.Var (Some None)), (Parser.Var None))))))
+      ] |}]
 ;;
