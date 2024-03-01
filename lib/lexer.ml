@@ -81,6 +81,7 @@ let lex s =
     | ' ' :: s | '\n' :: s -> f tokens s (* drop spaces *)
     | c :: s when is_alpha c ->
       let rec g acc = function
+        | [] -> Ident (string_of_chars @@ List.rev acc), []
         | c :: s when c = ' ' || c = '\n' || c = '.' ->
           ( Ident (string_of_chars @@ List.rev acc)
           , c :: s (* characters that complete ident *) )
@@ -107,12 +108,12 @@ let%expect_test "lexer" =
     longIdent1 .
     true false
     let in box <- fix
-    zero 0 succ pred |};
+    zero 0 succ pred x|};
   [%expect
     {|
     [Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot; (Lexer.Ident "z");
       Lexer.Lparen; Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
       Lexer.True; Lexer.False; Lexer.Let; Lexer.In; Lexer.Box; Lexer.Lt;
       Lexer.Dash; Lexer.Fix; Lexer.Zero; Lexer.Zero; Lexer.Succ; Lexer.Pred;
-      Lexer.EOF] |}]
+      (Lexer.Ident "x"); Lexer.EOF] |}]
 ;;
