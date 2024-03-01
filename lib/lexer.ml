@@ -4,7 +4,6 @@
 
 (** Tokens *)
 type t =
-  | EOF
   | Comma
   | Ident of string
   (* Bools *)
@@ -50,7 +49,7 @@ let is_alphanum c = is_alpha c || is_digit c
 (** Lexer *)
 let lex s =
   let rec f tokens = function
-    | [] -> List.rev (EOF :: tokens)
+    | [] -> List.rev tokens
     (* Bools *)
     | 't' :: 'r' :: 'u' :: 'e' :: s -> f (True :: tokens) s
     | 'f' :: 'a' :: 'l' :: 's' :: 'e' :: s -> f (False :: tokens) s
@@ -108,5 +107,5 @@ let%expect_test "lexer" =
       (Lexer.Ident "z"); Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
       Lexer.True; Lexer.False; Lexer.Let; Lexer.In; Lexer.Box; Lexer.Lt;
       Lexer.Dash; Lexer.Fix; Lexer.Zero; Lexer.Zero; Lexer.Succ; Lexer.Pred;
-      (Lexer.Ident "x"); Lexer.EOF] |}]
+      (Lexer.Ident "x")] |}]
 ;;
