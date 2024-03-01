@@ -81,15 +81,8 @@ let lex s =
     | ' ' :: s | '\n' :: s -> f tokens s (* drop spaces *)
     | c :: s when is_alpha c ->
       let rec g acc = function
-        | [] -> Ident (string_of_chars @@ List.rev acc), []
-        | c :: s when c = ' ' || c = '\n' || c = '.' ->
-          ( Ident (string_of_chars @@ List.rev acc)
-          , c :: s (* characters that complete ident *) )
         | c :: s when is_alphanum c -> g (c :: acc) s
-        | cs ->
-          raise
-            (Invalid_argument
-               ("unexpected character in ident: " ^ string_of_chars cs))
+        | cs -> Ident (string_of_chars @@ List.rev acc), cs
       in
       let ident, s = g [ c ] s in
       f (ident :: tokens) s
@@ -104,15 +97,15 @@ let%expect_test "lexer" =
   @@ [%derive.show: t list]
   @@ lex
        {|
-    \ x . z ()
+    (\ x . z)
     longIdent1 .
     true false
     let in box <- fix
     zero 0 succ pred x|};
   [%expect
     {|
-    [Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot; (Lexer.Ident "z");
-      Lexer.Lparen; Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
+    [Lexer.Lparen; Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot;
+      (Lexer.Ident "z"); Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
       Lexer.True; Lexer.False; Lexer.Let; Lexer.In; Lexer.Box; Lexer.Lt;
       Lexer.Dash; Lexer.Fix; Lexer.Zero; Lexer.Zero; Lexer.Succ; Lexer.Pred;
       (Lexer.Ident "x"); Lexer.EOF] |}]
