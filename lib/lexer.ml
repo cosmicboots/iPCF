@@ -19,6 +19,10 @@ type t =
   (* Lambda *)
   | Backslash
   | Dot
+  (* Conditional *)
+  | If
+  | Then
+  | Else
   (* Box / Keywords *)
   | Box
   | Fix
@@ -61,6 +65,10 @@ let lex s =
     (* Lambda *)
     | '\\' :: s -> f (Backslash :: tokens) s
     | '.' :: s -> f (Dot :: tokens) s
+    (* Conditional *)
+    | 'i' :: 'f' :: s -> f (If :: tokens) s
+    | 't' :: 'h' :: 'e' :: 'n' :: s -> f (Then :: tokens) s
+    | 'e' :: 'l' :: 's' :: 'e' :: s -> f (Else :: tokens) s
     (* Box / Keywords *)
     (*
        Syntax examples:
@@ -99,13 +107,14 @@ let%expect_test "lexer" =
     (\ x . z)
     longIdent1 .
     true false
+    if then else
     let in box <- fix
     zero 0 succ pred x|};
   [%expect
     {|
     [Lexer.Lparen; Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot;
       (Lexer.Ident "z"); Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
-      Lexer.True; Lexer.False; Lexer.Let; Lexer.In; Lexer.Box; Lexer.Lt;
-      Lexer.Dash; Lexer.Fix; Lexer.Zero; Lexer.Zero; Lexer.Succ; Lexer.Pred;
-      (Lexer.Ident "x")] |}]
+      Lexer.True; Lexer.False; Lexer.If; Lexer.Then; Lexer.Else; Lexer.Let;
+      Lexer.In; Lexer.Box; Lexer.Lt; Lexer.Dash; Lexer.Fix; Lexer.Zero;
+      Lexer.Zero; Lexer.Succ; Lexer.Pred; (Lexer.Ident "x")] |}]
 ;;
