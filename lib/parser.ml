@@ -110,30 +110,27 @@ let parse (input : Lexer.t list) =
     | [], r :: [] -> r
     | _ -> raise (Invalid_argument "Parse error")
   in
-  sr input []
+  match sr input [] with
+  | PE x -> x
+  | _ -> raise (Invalid_argument "Parse error")
 ;;
 
 let%expect_test {|parser:  \ x . \ y . x y))|} =
   let prog = {|\ x . \ y . x y|} in
   let tokens = Lexer.lex prog in
-  Printf.printf
-    "AST: %s\n"
-    ([%derive.show: string wrapped_token] (parse tokens));
+  Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
   [%expect
     {|
-    AST: (Parser.PE
-       (Parser.Abs
-          (Parser.Abs (Parser.App ((Parser.Var (Some None)), (Parser.Var None)))))) |}]
+    AST: (Parser.Abs
+       (Parser.Abs (Parser.App ((Parser.Var (Some None)), (Parser.Var None))))) |}]
 ;;
 
 let%expect_test {|parser: If conditionals + succ|} =
   let prog = {|if x then succ z else succ 0|} in
   let tokens = Lexer.lex prog in
-  Printf.printf
-    "AST: %s\n"
-    ([%derive.show: string wrapped_token] (parse tokens));
-  [%expect {|
-    AST: (Parser.PE
-       (Parser.IfThenElse ((Parser.Var "x"), (Parser.Succ (Parser.Var "z")),
-          (Parser.Const (Parser.Nat (Parser.Succ Parser.Zero)))))) |}]
+  Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
+  [%expect
+    {|
+    AST: (Parser.IfThenElse ((Parser.Var "x"), (Parser.Succ (Parser.Var "z")),
+       (Parser.Const (Parser.Nat (Parser.Succ Parser.Zero))))) |}]
 ;;
