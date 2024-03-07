@@ -1,16 +1,3 @@
-(*
-   type ground =
-   | Nat
-   | Bool
-   [@@deriving show]
-
-   type types =
-   | Ground of ground
-   | Arrow of types * types
-   | Box of types
-   [@@deriving show]
-*)
-
 type mybool =
   | True
   | False
@@ -31,6 +18,7 @@ type 'a terms =
   (* Basic lambda terms *)
   | Var of 'a
   | Const of ground_terms
+  | Succ of 'a terms
   | App of 'a terms * 'a terms
   | Abs of 'a option terms
   | IfThenElse of 'a terms * 'a terms * 'a terms
@@ -72,8 +60,6 @@ let capture ident term =
     term
 ;;
 
-(* TODO: Add context type definition here *)
-
 type 'a wrapped_token =
   | Tok of Lexer.t
   | PE of 'a terms
@@ -104,12 +90,16 @@ let parse (input : Lexer.t list) =
         :: PE cond
         :: Tok Lexer.If
         :: r ) -> sr i (PE (IfThenElse (cond, then_body, else_body)) :: r)
+    (* Successor *)
+    | i, PE (Const (Nat x)) :: Tok Lexer.Succ :: r ->
+      sr i (PE (Const (Nat (Succ x))) :: r) (* Constant successor *)
+    | i, PE (Var _ as x) :: Tok Lexer.Succ :: r ->
+      sr i (PE (Succ x) :: r) (* Variable successor *)
     (* === Shift rules === *)
     (* Ground types are complete expressions *)
     | Lexer.True :: i, r -> sr i (PE (Const (Bool True)) :: r)
     | Lexer.False :: i, r -> sr i (PE (Const (Bool False)) :: r)
     | Lexer.Zero :: i, r -> sr i (PE (Const (Nat Zero)) :: r)
-    | Lexer.Succ :: i, r -> sr i (PE (Const (Nat (Succ Zero))) :: r)
     | Lexer.Ident x :: i, r -> sr i (PE (Var x) :: r)
     (* === Lower precedence === *)
     (* Abstraction *)
@@ -118,12 +108,12 @@ let parse (input : Lexer.t list) =
     (* Move token to the stack *)
     | t :: i, r -> sr i (Tok t :: r)
     | [], r :: [] -> r
-    | _ -> raise (Invalid_argument "TODO")
+    | _ -> raise (Invalid_argument "Parse error")
   in
   sr input []
 ;;
 
-let%expect_test "parser: ( x . ( y . x y))" =
+let%expect_test {|parser:  \ x . \ y . x y))|} =
   let prog = {|\ x . \ y . x y|} in
   let tokens = Lexer.lex prog in
   Printf.printf
@@ -134,4 +124,16 @@ let%expect_test "parser: ( x . ( y . x y))" =
     AST: (Parser.PE
        (Parser.Abs
           (Parser.Abs (Parser.App ((Parser.Var (Some None)), (Parser.Var None)))))) |}]
+;;
+
+let%expect_test {|parser: If conditionals + succ|} =
+  let prog = {|if x then succ z else succ 0|} in
+  let tokens = Lexer.lex prog in
+  Printf.printf
+    "AST: %s\n"
+    ([%derive.show: string wrapped_token] (parse tokens));
+  [%expect {|
+    AST: (Parser.PE
+       (Parser.IfThenElse ((Parser.Var "x"), (Parser.Succ (Parser.Var "z")),
+          (Parser.Const (Parser.Nat (Parser.Succ Parser.Zero)))))) |}]
 ;;
