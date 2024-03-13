@@ -24,33 +24,30 @@ type 'a terms =
   | IfThenElse of 'a terms * 'a terms * 'a terms
   (* Boxed terms *)
   | Box of 'a terms
-  | Let of 'a * 'a terms * 'a terms
-  | BoxVar of 'a
-  | Fix of 'a * 'a terms
+  | Let of 'a terms * 'a option terms
+  | Fix of 'a option terms
 [@@deriving show]
 
 (** [bind_terms f a] performs a monadic bind on the term [a] using the function
     [f]. *)
 let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
   fun f a ->
+  let f' : 'a -> 'b = function
+    | None -> Var None
+    | Some x -> bind_terms (fun a -> Var (Some a)) (f x)
+  in
   match a with
   | Var x -> f x
   | App (x, y) -> App (bind_terms f x, bind_terms f y)
-  | Abs r ->
-    let f' : 'a -> 'b = function
-      | None -> Var None
-      | Some x -> bind_terms (fun a -> Var (Some a)) (f x)
-    in
-    Abs (bind_terms f' r)
+  | Abs r -> Abs (bind_terms f' r)
   | Const x -> Const x
+  | IfThenElse (c, t, e) ->
+    IfThenElse (bind_terms f c, bind_terms f t, bind_terms f e)
+  | Succ x -> Succ (bind_terms f x)
   (* Boxed terms *)
-  (*
-     | Box x -> Box (bind_terms f x)
-     | BoxVar x -> BoxVar x
-     | Fix (z, m) -> Fix (z, bind_terms f m)
-     | Let (u, m, n) -> Let (u, bind_terms f m, bind_terms f n)
-  *)
-  | _ -> raise (Invalid_argument "Not implemented")
+  | Box m -> Box (bind_terms f m)
+  | Fix m -> Fix (bind_terms f' m)
+  | Let (m, n) -> Let (bind_terms f m, bind_terms f' n)
 ;;
 
 (** [caapture ident term] captures all free occurences of [ident] in [term]. *)
