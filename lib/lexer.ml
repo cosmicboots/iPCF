@@ -2,6 +2,8 @@
    lambdas -> \ x -> M
 *)
 
+exception Lexing_error of string
+
 (** Tokens *)
 type t =
   | Comma
@@ -93,8 +95,7 @@ let lex s =
       in
       let ident, s = g [ c ] s in
       f (ident :: tokens) s
-    | c :: _ ->
-      raise (Invalid_argument ("unexpected character" ^ String.make 1 c))
+    | c :: _ -> raise (Lexing_error ("unexpected character" ^ String.make 1 c))
   in
   f [] @@ chars_of_string s
 ;;

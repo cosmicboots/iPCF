@@ -1,3 +1,5 @@
+exception Parser_error of unit
+
 type mybool =
   | True
   | False
@@ -105,11 +107,11 @@ let parse (input : Lexer.t list) =
     (* Move token to the stack *)
     | t :: i, r -> sr i (Tok t :: r)
     | [], r :: [] -> r
-    | _ -> raise (Invalid_argument "Parse error")
+    | _ -> raise (Parser_error ())
   in
   match sr input [] with
   | PE x -> x
-  | _ -> raise (Invalid_argument "Parse error")
+  | _ -> raise (Parser_error ())
 ;;
 
 let%expect_test {|parser:  \ x . \ y . x y))|} =
