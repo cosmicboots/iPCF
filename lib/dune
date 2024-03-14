@@ -2,4 +2,4 @@
  (name ipcf)
  (inline_tests)
  (preprocess
-  (pps ppx_deriving.show ppx_expect)))
+  (pps ppx_deriving.show ppx_deriving.eq ppx_expect)))

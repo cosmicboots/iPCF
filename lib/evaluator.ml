@@ -33,7 +33,7 @@ let root_reduction =
     | t -> t)
 ;;
 
-(* TODO: Reduction steps *)
+(** [redstep t] maps the root reduction steps over the term [t] once. *)
 let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
   fun t ->
   let red = root_reduction t in
@@ -53,15 +53,28 @@ let%expect_test "single reduction step" =
   let t = Parser.parse @@ Lexer.lex {|(\ x . (\ y . x y)) z z|} in
   let result = redstep t in
   print_endline @@ [%derive.show: string Parser.terms] result;
-  [%expect {|
+  [%expect
+    {|
     (Parser.App (
        (Parser.Abs (Parser.App ((Parser.Var (Some "z")), (Parser.Var None)))),
        (Parser.Var "z"))) |}]
 ;;
 
-(* TODO: Top level reduction function.
-   This function might require deriving [eq] for abstract types, which isn't
-   possible in OCaml.
-   This might end up being a problem, and could require a custom equality
-   function that can operate on ['a terms] types.
-*)
+(** [reduce t] fully reduces the term [t]. *)
+let reduce t =
+  let rec f t =
+    let red = redstep t in
+    (* ppx_deriving eq is used rather than Stdlib.(=) because ppx_deriving eq
+       is a short-circuiting function, which is faster in theory and it's
+       guaranteed not to raise at runtime. *)
+    if Parser.equal_terms String.equal red t then t else f red
+  in
+  f t
+;;
+
+let%expect_test "full reduction" =
+  let t = Parser.parse @@ Lexer.lex {|(\ x . (\ y . x y)) z z|} in
+  let result = reduce t in
+  print_endline @@ [%derive.show: string Parser.terms] result;
+  [%expect {| (Parser.App ((Parser.Var "z"), (Parser.Var "z"))) |}]
+;;
