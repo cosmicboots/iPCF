@@ -30,10 +30,34 @@ let root_reduction =
     | Let (m, n) -> subst n m
     | Fix m -> subst m (Box (Fix m))
     (* TODO: Add natural number rules *)
-    | _ -> raise @@ Invalid_argument "No root reduction rule applies")
+    | t -> t)
 ;;
 
 (* TODO: Reduction steps *)
+let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
+  fun t ->
+  let red = root_reduction t in
+  match red with
+  | App (x, y) -> App (redstep x, redstep y)
+  | IfThenElse (c, t, e) -> IfThenElse (redstep c, t, e)
+  | Var _ as v -> v
+  | Const _ as c -> c
+  | Abs s -> Abs (redstep s)
+  | Box m -> Box (redstep m)
+  | Let (m, n) -> Let (redstep m, n)
+  | Fix m -> Fix (redstep m)
+  | Succ x -> Succ (redstep x)
+;;
+
+let%expect_test "single reduction step" =
+  let t = Parser.parse @@ Lexer.lex {|(\ x . (\ y . x y)) z z|} in
+  let result = redstep t in
+  print_endline @@ [%derive.show: string Parser.terms] result;
+  [%expect {|
+    (Parser.App (
+       (Parser.Abs (Parser.App ((Parser.Var (Some "z")), (Parser.Var None)))),
+       (Parser.Var "z"))) |}]
+;;
 
 (* TODO: Top level reduction function.
    This function might require deriving [eq] for abstract types, which isn't
