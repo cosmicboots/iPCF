@@ -15,6 +15,7 @@ depends: [
   "ppx_deriving"
   "core"
   "cmdliner"
+  "ocamline"
   "odoc" {with-doc}
 ]
 build: [
