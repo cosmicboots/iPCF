@@ -14,6 +14,7 @@ depends: [
   "dune" {>= "3.10"}
   "ppx_deriving"
   "core"
+  "cmdliner"
   "odoc" {with-doc}
 ]
 build: [

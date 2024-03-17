@@ -1,6 +1,6 @@
 (executable
  (public_name ipcf)
  (name main)
- (libraries ipcf)
+ (libraries ipcf cmdliner)
  (preprocess
   (pps ppx_deriving.show)))

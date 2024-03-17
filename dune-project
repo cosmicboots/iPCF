@@ -19,7 +19,7 @@
  (name ipcf)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune ppx_deriving core)
+ (depends ocaml dune ppx_deriving core cmdliner)
  (tags
   (topics "to describe" your project)))
 
