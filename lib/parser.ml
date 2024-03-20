@@ -3,18 +3,18 @@ exception Parser_error of unit
 type mybool =
   | True
   | False
-[@@deriving show, eq]
+[@@deriving show { with_path = false }, eq]
 
 type nat =
   | Zero
   | Succ of nat
   | Pred of nat
-[@@deriving show, eq]
+[@@deriving show { with_path = false }, eq]
 
 type ground_terms =
   | Bool of mybool
   | Nat of nat
-[@@deriving show, eq]
+[@@deriving show { with_path = false }, eq]
 
 type 'a terms =
   (* Basic lambda terms *)
@@ -28,7 +28,7 @@ type 'a terms =
   | Box of 'a terms
   | Let of 'a terms * 'a option terms
   | Fix of 'a option terms
-[@@deriving show, eq]
+[@@deriving show { with_path = false }, eq]
 
 (** [bind_terms f a] performs a monadic bind on the term [a] using the function
     [f]. *)
@@ -120,8 +120,7 @@ let%expect_test {|parser:  \ x . \ y . x y))|} =
   Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
   [%expect
     {|
-    AST: (Parser.Abs
-       (Parser.Abs (Parser.App ((Parser.Var (Some None)), (Parser.Var None))))) |}]
+    AST: (Abs (Abs (App ((Var (Some None)), (Var None))))) |}]
 ;;
 
 let%expect_test {|parser: If conditionals + succ|} =
@@ -130,6 +129,5 @@ let%expect_test {|parser: If conditionals + succ|} =
   Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
   [%expect
     {|
-    AST: (Parser.IfThenElse ((Parser.Var "x"), (Parser.Succ (Parser.Var "z")),
-       (Parser.Const (Parser.Nat (Parser.Succ Parser.Zero))))) |}]
+    AST: (IfThenElse ((Var "x"), (Succ (Var "z")), (Const (Nat (Succ Zero))))) |}]
 ;;

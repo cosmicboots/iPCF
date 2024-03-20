@@ -17,7 +17,7 @@ let%expect_test "subst" =
      let result = subst s t in
      print_endline @@ [%derive.show: string Parser.terms] result
    | _ -> raise @@ Invalid_argument "This should never happend");
-  [%expect {| (Parser.App ((Parser.Var "y"), (Parser.Var "y"))) |}]
+  [%expect {| (App ((Var "y"), (Var "y"))) |}]
 ;;
 
 (** [root_reduction t] applies a single root reduction rule to [t].*)
@@ -55,9 +55,7 @@ let%expect_test "single reduction step" =
   print_endline @@ [%derive.show: string Parser.terms] result;
   [%expect
     {|
-    (Parser.App (
-       (Parser.Abs (Parser.App ((Parser.Var (Some "z")), (Parser.Var None)))),
-       (Parser.Var "z"))) |}]
+    (App ((Abs (App ((Var (Some "z")), (Var None)))), (Var "z"))) |}]
 ;;
 
 (** [reduce t] fully reduces the term [t]. *)
@@ -76,5 +74,5 @@ let%expect_test "full reduction" =
   let t = Parser.parse @@ Lexer.lex {|(\ x . (\ y . x y)) z z|} in
   let result = reduce t in
   print_endline @@ [%derive.show: string Parser.terms] result;
-  [%expect {| (Parser.App ((Parser.Var "z"), (Parser.Var "z"))) |}]
+  [%expect {| (App ((Var "z"), (Var "z"))) |}]
 ;;
