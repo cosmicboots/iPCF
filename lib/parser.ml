@@ -90,9 +90,7 @@ let parse (input : Lexer.t list) =
         :: Tok Lexer.If
         :: r ) -> sr i (PE (IfThenElse (cond, then_body, else_body)) :: r)
     (* Successor *)
-    | i, PE (Const (Nat x)) :: Tok Lexer.Succ :: r ->
-      sr i (PE (Const (Nat (Succ x))) :: r) (* Constant successor *)
-    | i, PE (Var _ as x) :: Tok Lexer.Succ :: r ->
+    | i, PE x :: Tok Lexer.Succ :: r ->
       sr i (PE (Succ x) :: r) (* Variable successor *)
     (* === Shift rules === *)
     (* Ground types are complete expressions *)
@@ -129,5 +127,5 @@ let%expect_test {|parser: If conditionals + succ|} =
   Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
   [%expect
     {|
-    AST: (IfThenElse ((Var "x"), (Succ (Var "z")), (Const (Nat (Succ Zero))))) |}]
+    AST: (IfThenElse ((Var "x"), (Succ (Var "z")), (Succ (Const (Nat Zero))))) |}]
 ;;
