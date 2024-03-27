@@ -8,7 +8,7 @@ type ground_type =
 type type_ =
   | Ground of ground_type
   | Arrow of type_ * type_
-  (** [Arrow t1 t2] represents the function type from [t1] to [t2] *)
+      (** [Arrow t1 t2] represents the function type from [t1] to [t2] *)
   | Box of type_
 [@@deriving show]
 
@@ -17,7 +17,8 @@ type scheme = Forall of string list * type_
 
 type type_error =
   | Mismatch of type_ * type_
-  (** [Mismatch (t1, t2)] indicates that [t1] was expected but [t2] was found. *)
+      (** [Mismatch (t1, t2)] indicates that [t1] was expected but [t2] was
+          found. *)
   | NotFunction of type_
   | NotInScope of string
   | Unimplemented
@@ -33,7 +34,8 @@ module Context = struct
       from [k] to [v]. *)
   let extend ctx (k, v) = (k, v) :: ctx
 
-  (** [lookup ctx k] returns the type bound to [k] in the type environment [ctx]. *)
+  (** [lookup ctx k] returns the type bound to [k] in the type environment
+      [ctx]. *)
   let lookup ctx k =
     try Ok (List.assoc k ctx) with
     | Not_found -> Error (NotInScope k)
@@ -75,37 +77,23 @@ let rec check : 'a. 'a Parser.terms -> (type_, type_error) result = function
   | _ -> Error Unimplemented
 ;;
 
-let%expect_test "if then else" =
-  List.iter
-    (fun x ->
-      let t = Parser.parse @@ Lexer.lex x in
-      match check t with
-      | Ok result -> print_endline (show_type_ result)
-      | Error e -> print_endline @@ show_type_error e)
-    [ "if true then 0 else succ 0"
-    ; "if 0 then 0 else succ 0"
-    ; "if true then 0 else true"
-    ];
-  [%expect
-    {|
-    (Typing.Ground Typing.Nat)
-    (Typing.Mismatch ((Typing.Ground Typing.Bool), (Typing.Ground Typing.Nat)))
-    (Typing.Mismatch ((Typing.Ground Typing.Nat), (Typing.Ground Typing.Bool))) |}]
+let%test "if then else" =
+  List.fold_left
+    (fun acc (tst, sol) -> acc && check (Parser.parse @@ Lexer.lex tst) = sol)
+    true
+    [ "if true then 0 else succ 0", Ok (Ground Nat)
+    ; "if 0 then 0 else succ 0", Error (Mismatch (Ground Bool, Ground Nat))
+    ; "if true then 0 else true", Error (Mismatch (Ground Nat, Ground Bool))
+    ]
 ;;
 
-let%expect_test "check natural" =
-  let t = Parser.parse @@ Lexer.lex "succ true" in
-  (match check t with
-   | Ok result -> print_endline (show_type_ result)
-   | Error e -> print_endline @@ show_type_error e);
-  let t = Parser.parse @@ Lexer.lex "succ 0" in
-  (match check t with
-   | Ok result -> print_endline (show_type_ result)
-   | Error e -> print_endline @@ show_type_error e);
-  [%expect
-    {|
-    (Typing.Mismatch ((Typing.Ground Typing.Nat), (Typing.Ground Typing.Bool)))
-    (Typing.Ground Typing.Nat) |}]
+let%test "check natural" =
+  List.fold_left
+    (fun acc (tst, sol) -> acc && check (Parser.parse @@ Lexer.lex tst) = sol)
+    true
+    [ "succ true", Error (Mismatch (Ground Nat, Ground Bool))
+    ; "succ 0", Ok (Ground Nat)
+    ]
 ;;
 
 (* TODO: This is probably the wrong type for infer, but I'm leaving it for now *)

@@ -3,4 +3,4 @@
  (inline_tests)
  (libraries ocamline)
  (preprocess
-  (pps ppx_deriving.show ppx_deriving.eq ppx_expect)))
+  (pps ppx_deriving.show ppx_deriving.eq ppx_expect ppx_inline_test)))

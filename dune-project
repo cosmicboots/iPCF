@@ -5,22 +5,21 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github cosmicboots/ipcf))
 
-(authors "Author Name")
+(authors "Thom Dickson")
 
-(maintainers "Maintainer Name")
+(maintainers "Thom Dickson")
 
 (license LICENSE)
 
-(documentation https://url/to/documentation)
-
 (package
  (name ipcf)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml dune ppx_deriving core cmdliner ocamline)
+ (synopsis "An iPCF interpreter")
+ (description
+  "An interpreter for the iPCF language, a simple extension of the simply-typed lambda calculus with intentional.")
+ (depends ocaml dune ppx_deriving core cmdliner ocamline ppx_inline_test)
  (tags
-  (topics "to describe" your project)))
+  (ipcf pcf "lambda calculus")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
