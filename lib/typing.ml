@@ -52,12 +52,11 @@ let rec check : 'a. 'a Parser.terms -> (type_, type_error) result = function
      | Ok (Ground Nat) -> Ok (Ground Nat)
      | Ok t -> Error (Mismatch (Ground Nat, t))
      | Error e -> Error e)
-  (*
-     | Abs t ->
-     let ( let* ) = Result.bind in
-     let* t' = check t in
-     Ok (Arrow (x, t))
-  *)
+    (*
+       | Abs t ->
+       let* t' = check t in
+       Ok (Arrow (x, t))
+    *)
   | App (t1, t2) ->
     let* t1' = check t1 in
     let* t2' = check t2 in
