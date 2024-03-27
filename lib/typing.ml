@@ -1,5 +1,7 @@
 let ( let* ) = Result.bind
 
+type type_var = string
+
 type ground_type =
   | Nat
   | Bool
@@ -11,9 +13,6 @@ type type_ =
       (** [Arrow t1 t2] represents the function type from [t1] to [t2] *)
   | Box of type_
 [@@deriving show]
-
-(** A type scheme indicates bound type variables as polymorphic types *)
-type scheme = Forall of string list * type_
 
 type type_error =
   | Mismatch of type_ * type_
@@ -95,6 +94,34 @@ let%test "check natural" =
     ; "succ 0", Ok (Ground Nat)
     ]
 ;;
+
+module Subst = Map.Make (String)
+
+module type Substitutable = sig
+  type t
+
+  (** Apply a substitution to a type *)
+  val apply : 'a Subst.t -> t -> t
+
+  val free_vars : t -> string list
+end
+
+module TypeEnv (M : Substitutable) = struct
+  include Map.Make (String)
+
+  let apply s env = map (M.apply s) env
+  let free_vars _t = []
+end
+
+module Scheme (M : Substitutable) = struct
+  (** A type scheme indicates bound type variables as polymorphic types *)
+  type t = Forall of string list * type_
+
+  let apply s (Forall (a, t)) =
+    let s' = List.fold_right Subst.remove a s in
+    Forall (a, M.apply s' t)
+  ;;
+end
 
 (* TODO: This is probably the wrong type for infer, but I'm leaving it for now *)
 module Infer = struct
