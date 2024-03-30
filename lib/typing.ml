@@ -151,25 +151,6 @@ let%test "if then else" =
     ; {|\x . succ x|}, Arrow (Ground Nat, Ground Nat)
     ; ( {|\x . \y . x y|}
       , Arrow (Arrow (Forall 0, Forall 2), Arrow (Forall 0, Forall 2)) )
+    ; {| (\x . if x then 0 else succ 0) true |}, Ground Nat
     ]
 ;;
-
-(*
-   let%test "check natural" =
-  List.fold_left
-    (fun acc (tst, sol) -> acc && check (Parser.parse @@ Lexer.lex tst) = sol)
-    true
-    [ "succ true", Error (Mismatch (Ground Nat, Ground Bool))
-    ; "succ 0", Ok (Ground Nat)
-    ]
-;;
-*)
-module Subst = Map.Make (String)
-
-(** A type scheme indicates bound type variables as polymorphic types *)
-type scheme = Forall of string list * Type.t
-
-(* TODO: This is probably the wrong type for infer, but I'm leaving it for now *)
-module Infer = struct
-  type t = { next_var_id : int }
-end
