@@ -3,18 +3,18 @@ exception Parser_error of unit
 type mybool =
   | True
   | False
-[@@deriving show { with_path = false }, eq]
+[@@deriving show { with_path = false }, eq, ord]
 
 type nat =
   | Zero
   | Succ of nat
   | Pred of nat
-[@@deriving show { with_path = false }, eq]
+[@@deriving show { with_path = false }, eq, ord]
 
 type ground_terms =
   | Bool of mybool
   | Nat of nat
-[@@deriving show { with_path = false }, eq]
+[@@deriving show { with_path = false }, eq, ord]
 
 type 'a terms =
   (* Basic lambda terms *)
@@ -28,7 +28,7 @@ type 'a terms =
   | Box of 'a terms
   | Let of 'a terms * 'a option terms
   | Fix of 'a option terms
-[@@deriving show { with_path = false }, eq]
+[@@deriving show { with_path = false }, eq, ord]
 
 (** [bind_terms f a] performs a monadic bind on the term [a] using the function
     [f]. *)
