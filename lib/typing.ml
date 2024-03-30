@@ -1,5 +1,3 @@
-let ( let* ) = Result.bind
-
 module Type = struct
   type ground_type =
     | Nat
@@ -10,7 +8,7 @@ module Type = struct
     | Ground of ground_type
     | Arrow of t * t
     (** [Arrow t1 t2] represents the function type from [t1] to [t2] *)
-    | Box of t
+    | Box of t [@warning "-37"]
     | Forall of int
     (** [Forall s] represents a polymorphic type with the name [s] *)
   [@@deriving ord]
@@ -29,15 +27,6 @@ module Type = struct
   ;;
 
   let pp ppf t = Format.fprintf ppf "%s" (show t)
-
-  type error =
-    | Mismatch of t * t
-    (** [Mismatch (t1, t2)] indicates that [t1] was expected but [t2] was
-        found. *)
-    | NotFunction of t
-    | NotInScope of string
-    | Unimplemented
-  [@@deriving show]
 end
 
 (* Ensure we can use types as keys in a map *)
