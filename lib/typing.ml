@@ -1,82 +1,88 @@
 let ( let* ) = Result.bind
 
-type type_var = string
+module Type = struct
+  type ground_type =
+    | Nat
+    | Bool
+  [@@deriving show, ord]
 
-type ground_type =
-  | Nat
-  | Bool
-[@@deriving show]
+  type t =
+    | Ground of ground_type
+    | Arrow of t * t
+    (** [Arrow t1 t2] represents the function type from [t1] to [t2] *)
+    | Box of t
+  [@@deriving show, ord]
 
-type type_ =
-  | Ground of ground_type
-  | Arrow of type_ * type_
-      (** [Arrow t1 t2] represents the function type from [t1] to [t2] *)
-  | Box of type_
-[@@deriving show]
-
-type type_error =
-  | Mismatch of type_ * type_
-      (** [Mismatch (t1, t2)] indicates that [t1] was expected but [t2] was
-          found. *)
-  | NotFunction of type_
-  | NotInScope of string
-  | Unimplemented
-[@@deriving show]
-
-(* TODO: iPCF has both a Γ and a Δ *)
-module Context = struct
-  type t = (string * type_) list
-
-  let empty = []
-
-  (** [extend ctx (k, v)] extends the type environment [ctx] with a new binding
-      from [k] to [v]. *)
-  let extend ctx (k, v) = (k, v) :: ctx
-
-  (** [lookup ctx k] returns the type bound to [k] in the type environment
-      [ctx]. *)
-  let lookup ctx k =
-    try Ok (List.assoc k ctx) with
-    | Not_found -> Error (NotInScope k)
-  ;;
-
-  (** [restrict ctx k] removes the binding for [k] from the type environment
-      [ctx]. *)
-  let restrict ctx k = List.remove_assoc k ctx
+  type error =
+    | Mismatch of t * t
+    (** [Mismatch (t1, t2)] indicates that [t1] was expected but [t2] was
+        found. *)
+    | NotFunction of t
+    | NotInScope of string
+    | Unimplemented
+  [@@deriving show]
 end
 
-let rec check : 'a. 'a Parser.terms -> (type_, type_error) result = function
-  | Const (Nat _) -> Ok (Ground Nat)
-  | Const (Bool _) -> Ok (Ground Bool)
+(* Ensure we can use types as keys in a map *)
+module _ : Map.OrderedType = Type
+
+(** A context is a mapping from variables to types *)
+type 'a context = 'a -> Type.t
+
+(** A type environment is a mapping from types to types *)
+module TypeEnv = struct
+  include Map.Make (Type) [@@deriving show]
+
+  (** [show env] pretty-prints the type environment [env] *)
+  let show env =
+    List.fold_left
+      (fun acc (k, v) ->
+        Printf.sprintf "%s\n%s -> %s" acc (Type.show k) (Type.show v))
+      ""
+      (bindings env)
+  ;;
+end
+
+type type_env = Type.t TypeEnv.t
+
+let rec check
+  : 'a. 'a context -> 'a Parser.terms -> (Type.t * type_env, Type.error) result
+  =
+  fun ctx -> function
+  | Var x -> Ok (ctx x, TypeEnv.empty)
+  (*
+     | Abs t ->
+     let ctx' = Option.fold ctx in
+     let* t' = check t in
+     Ok (Arrow (x, t'))
+  *)
+  | Const (Nat _) -> Ok (Ground Nat, TypeEnv.empty)
+  | Const (Bool _) -> Ok (Ground Bool, TypeEnv.empty)
   | Succ t ->
-    (match check t with
-     | Ok (Ground Nat) -> Ok (Ground Nat)
-     | Ok t -> Error (Mismatch (Ground Nat, t))
+    (match check ctx t with
+     | Ok (Ground Nat, _env) -> Ok (Ground Nat, TypeEnv.empty)
+     | Ok (t, _env) -> Error (Mismatch (Ground Nat, t))
      | Error e -> Error e)
-    (*
-       | Abs t ->
-       let* t' = check t in
-       Ok (Arrow (x, t))
-    *)
   | App (t1, t2) ->
-    let* t1' = check t1 in
-    let* t2' = check t2 in
+    let* t1', _env1 = check ctx t1 in
+    let* t2', _env1 = check ctx t2 in
     (match t1' with
-     | Arrow (a, b) when a = t2' -> Ok b
+     | Arrow (a, b) when a = t2' -> Ok (b, TypeEnv.empty)
      | Arrow (a, _) -> Error (Mismatch (a, t2'))
      | _ -> Error (NotFunction t1'))
   | IfThenElse (c, t, e) ->
-    let* c' = check c in
+    let* c', _env = check ctx c in
     if c' = Ground Bool
     then
-      let* t' = check t in
-      let* e' = check e in
-      if t' = e' then Ok t' else Error (Mismatch (t', e'))
+      let* t', _env = check ctx t in
+      let* e', _env = check ctx e in
+      if t' = e' then Ok (t', TypeEnv.empty) else Error (Mismatch (t', e'))
     else Error (Mismatch (Ground Bool, c'))
   | _ -> Error Unimplemented
 ;;
 
-let%test "if then else" =
+(*
+   let%test "if then else" =
   List.fold_left
     (fun acc (tst, sol) -> acc && check (Parser.parse @@ Lexer.lex tst) = sol)
     true
@@ -94,34 +100,11 @@ let%test "check natural" =
     ; "succ 0", Ok (Ground Nat)
     ]
 ;;
-
+*)
 module Subst = Map.Make (String)
 
-module type Substitutable = sig
-  type t
-
-  (** Apply a substitution to a type *)
-  val apply : 'a Subst.t -> t -> t
-
-  val free_vars : t -> string list
-end
-
-module TypeEnv (M : Substitutable) = struct
-  include Map.Make (String)
-
-  let apply s env = map (M.apply s) env
-  let free_vars _t = []
-end
-
-module Scheme (M : Substitutable) = struct
-  (** A type scheme indicates bound type variables as polymorphic types *)
-  type t = Forall of string list * type_
-
-  let apply s (Forall (a, t)) =
-    let s' = List.fold_right Subst.remove a s in
-    Forall (a, M.apply s' t)
-  ;;
-end
+(** A type scheme indicates bound type variables as polymorphic types *)
+type scheme = Forall of string list * Type.t
 
 (* TODO: This is probably the wrong type for infer, but I'm leaving it for now *)
 module Infer = struct
