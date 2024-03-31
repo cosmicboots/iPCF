@@ -106,6 +106,16 @@ let parse (input : Lexer.t list) =
     (* Fix *)
     | i, PE body :: Tok Lexer.In :: PE (Var x) :: Tok Lexer.Fix :: r ->
       sr i (PE (Fix (capture x body)) :: r)
+    (* Let *)
+    | ( i
+      , PE n
+        :: Tok Lexer.In
+        :: PE m
+        :: Tok Lexer.Dash
+        :: Tok Lexer.Lt
+        :: PE (Box (Var u))
+        :: Tok Lexer.Let
+        :: r ) -> sr i (PE (Let (m, capture u n)) :: r)
     (* Move token to the stack *)
     | t :: i, r -> sr i (Tok t :: r)
     | [], r :: [] -> r
@@ -123,6 +133,7 @@ let%test "fix binding" =
     [ "fix x in x", Fix (Var None)
     ; "box x", Box (Var "x")
     ; "fix x in x", Fix (Var None)
+    ; "let box x <- n in x", Let (Var "n", Var None)
     ]
 ;;
 
