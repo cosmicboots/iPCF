@@ -52,7 +52,7 @@ let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
   | Let (m, n) -> Let (bind_terms f m, bind_terms f' n)
 ;;
 
-(** [caapture ident term] captures all free occurences of [ident] in [term]. *)
+(** [capture ident term] captures all free occurences of [ident] in [term]. *)
 let capture ident term =
   bind_terms
     (fun y -> if String.equal ident y then Var None else Var (Some y))
@@ -90,8 +90,9 @@ let parse (input : Lexer.t list) =
         :: Tok Lexer.If
         :: r ) -> sr i (PE (IfThenElse (cond, then_body, else_body)) :: r)
     (* Successor *)
-    | i, PE x :: Tok Lexer.Succ :: r ->
-      sr i (PE (Succ x) :: r) (* Variable successor *)
+    | i, PE x :: Tok Lexer.Succ :: r -> sr i (PE (Succ x) :: r)
+    (* Box *)
+    | i, PE x :: Tok Lexer.Box :: r -> sr i (PE (Box x) :: r)
     (* === Shift rules === *)
     (* Ground types are complete expressions *)
     | Lexer.True :: i, r -> sr i (PE (Const (Bool True)) :: r)
@@ -102,6 +103,9 @@ let parse (input : Lexer.t list) =
     (* Abstraction *)
     | i, PE body :: Tok Lexer.Dot :: PE (Var x) :: Tok Lexer.Backslash :: r ->
       sr i (PE (Abs (capture x body)) :: r)
+    (* Fix *)
+    | i, PE body :: Tok Lexer.In :: PE (Var x) :: Tok Lexer.Fix :: r ->
+      sr i (PE (Fix (capture x body)) :: r)
     (* Move token to the stack *)
     | t :: i, r -> sr i (Tok t :: r)
     | [], r :: [] -> r
@@ -112,12 +116,21 @@ let parse (input : Lexer.t list) =
   | _ -> raise (Parser_error ())
 ;;
 
+let%test "fix binding" =
+  List.fold_left
+    (fun acc (tst, sol) -> acc && parse @@ Lexer.lex tst = sol)
+    true
+    [ "fix x in x", Fix (Var None)
+    ; "box x", Box (Var "x")
+    ; "fix x in x", Fix (Var None)
+    ]
+;;
+
 let%expect_test {|parser:  \ x . \ y . x y))|} =
   let prog = {|\ x . \ y . x y|} in
   let tokens = Lexer.lex prog in
   Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
-  [%expect
-    {|
+  [%expect {|
     AST: (Abs (Abs (App ((Var (Some None)), (Var None))))) |}]
 ;;
 

@@ -164,5 +164,6 @@ let%test "check tests" =
     ; ( {|\x . \y . x y|}
       , Arrow (Arrow (Forall 0, Forall 2), Arrow (Forall 0, Forall 2)) )
     ; {| (\x . if x then 0 else succ 0) true |}, Ground Nat
+    ; {| (\x . fix x in x) (box 0) |}, Ground Nat
     ]
 ;;
