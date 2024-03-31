@@ -145,15 +145,15 @@ let%test "check tests" =
       (* Reset global state *)
       next_var_id := 0;
       let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
-      Printf.printf
-        " |- %s : %s -| %s"
-        tst
-        (Type.show t)
-        (ConstraintCtx.show c);
       let chk = t = sol in
       if not chk
-      then Printf.printf " <--- FAILED\n\tExpected: %s" (Type.show sol);
-      print_endline "";
+      then
+        Printf.printf
+          "%s : %s -| %s\nExpected: %s\n\n"
+          tst
+          (Type.show t)
+          (ConstraintCtx.show c)
+          (Type.show sol);
       acc && chk)
     true
     [ "0", Ground Nat
@@ -164,6 +164,7 @@ let%test "check tests" =
     ; ( {|\x . \y . x y|}
       , Arrow (Arrow (Forall 0, Forall 2), Arrow (Forall 0, Forall 2)) )
     ; {| (\x . if x then 0 else succ 0) true |}, Ground Nat
-    ; {| (\x . fix x in x) (box 0) |}, Ground Nat
+    ; {| fix x in 0 |}, Ground Nat
+    ; {| let box x <- box 0 in x |}, Ground Nat
     ]
 ;;
