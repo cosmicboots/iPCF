@@ -113,10 +113,33 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
       |> ConstraintCtx.add a t3
     in
     a, c
-  | _ -> raise @@ Invalid_argument "Not implemented"
+  | Box e ->
+    let t, c = check ctx e in
+    Type.Box t, c
+  | Let (m, n) ->
+    (* Generate a new type variable for the result of the let box expression *)
+    let t = Type.Forall (get_var_id ()) in
+    (* Unwrap the let box binding variable context *)
+    let ctx' = function
+      | None -> t
+      | Some x -> ctx x
+    in
+    (* Infer types for the two expressions *)
+    let tm, c1 = check ctx m in
+    let tn, c2 = check ctx' n in
+    let c = ConstraintCtx.union c1 c2 |> ConstraintCtx.add tm (Type.Box t) in
+    tn, c
+  | Fix e ->
+    let a = Type.Forall (get_var_id ()) in
+    let ctx' = function
+      | None -> Type.Box a
+      | Some x -> ctx x
+    in
+    let t, c = check ctx' e in
+    t, ConstraintCtx.add a t c
 ;;
 
-let%test "if then else" =
+let%test "check tests" =
   List.fold_left
     (fun acc (tst, sol) ->
       (* Reset global state *)
