@@ -177,10 +177,10 @@ end
 module SubstMap = struct
   include Map.Make (SubstKey)
 
-  let _show m =
+  let show m =
     let rec f = function
       | (`Var x, v) :: r ->
-        Printf.sprintf "%s = %s, %s" (Type.show (`Var x)) (Type.show v) (f r)
+        Printf.sprintf "{%s / %s}, %s" (Type.show (`Var x)) (Type.show v) (f r)
       | _ -> ""
     in
     f (bindings m)
@@ -199,7 +199,7 @@ let subst_ctx : substitutions -> constraint_ctx -> constraint_ctx =
     ctx
 ;;
 
-let _unify ctx =
+let unify ctx =
   let rec unify' s ctx =
     match ConstraintCtx.choose_opt ctx with
     | None -> s
@@ -215,28 +215,30 @@ let _unify ctx =
         | `Arrow (t1, t3), `Arrow (t2, t4) ->
           ctx |> ConstraintCtx.add t1 t2 |> ConstraintCtx.add t3 t4 |> unify' s
         | `Box t1, `Box t2 -> unify' s @@ ConstraintCtx.add t1 t2 ctx
-        | (`Ground _ as t2), (`Var _ as t1) | (`Var _ as t1), (`Ground _ as t2)
-          ->
+        | t2, (`Var _ as t1) | (`Var _ as t1), t2 ->
           (* Perform substitution in the rest of the context *)
           let ctx = subst_ctx s ctx in
           (* Add substitution to solution *)
           let s = SubstMap.add t1 t2 s in
           ctx |> unify' s
-        | _ -> raise @@ Invalid_argument "Unification failed")
+        | t1, t2 ->
+          raise
+          @@ Invalid_argument
+               (Printf.sprintf "%s = %s" (Type.show t1) (Type.show t2)))
   in
   unify' SubstMap.empty ctx
 ;;
 
 let%test "unify" =
-  let tst = {| (\x . if x then 0 else succ 0) true |} in
+  let tst = {| \x . \y . x y |} in
   let sol = `Ground Type.Nat in
   let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
-  let _s = _unify c in
+  let s = unify c in
   Printf.printf
     "unify | %s : %s -| %s\nExpected: %s\n\n"
     tst
     (Type.show t)
-    (ConstraintCtx.show c)
+    (SubstMap.show s)
     (Type.show sol);
   t = sol
 ;;
