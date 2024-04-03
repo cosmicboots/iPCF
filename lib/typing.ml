@@ -156,11 +156,7 @@ module SubstMap = struct
 
   let apply : Type.t -> Type.t t -> Type.t =
     fun t s ->
-    print_endline "=== Starting substitutions ===";
-    let rec apply' t =
-      Printf.printf "Applying     : %s\n" (Type.show t);
-      Printf.printf "Substitutions: %s\n" (_show s);
-      match t with
+    let rec apply' = function
       | `Ground x -> `Ground x
       | `Arrow (t1, t2) -> `Arrow (apply' t1, apply' t2)
       | `Box t -> `Box (apply' t)
@@ -206,9 +202,6 @@ let unify ctx =
     | None -> s
     | Some (t1, t2) ->
       let ctx = ConstraintCtx.remove (t1, t2) ctx in
-      Printf.printf "Substitutions: %s\n" (SubstMap._show s);
-      Printf.printf "Unifying %s with %s\n" (Type.show t1) (Type.show t2);
-      Printf.printf "Context: %s\n" (ConstraintCtx.show ctx);
       if Type.equal t1 t2
       then
         (* [t1 = t2] constraint is trivially satisfied, remove it from the
@@ -217,14 +210,12 @@ let unify ctx =
       else (
         match t1, t2 with
         | `Arrow (t1, t3), `Arrow (t2, t4) ->
-          let ctx =
-            ctx |> ConstraintCtx.add (t1, t2) |> ConstraintCtx.add (t3, t4)
-          in
-          Printf.printf "New context: %s\n" (ConstraintCtx.show ctx);
-          unify' s ctx
+          ctx
+          |> ConstraintCtx.add (t1, t2)
+          |> ConstraintCtx.add (t3, t4)
+          |> unify' s
         | `Box t1, `Box t2 -> unify' s @@ ConstraintCtx.add (t1, t2) ctx
         | t2, (`Var _ as t1) | (`Var _ as t1), t2 ->
-          Printf.printf "Unifying %s with %s\n" (Type.show t1) (Type.show t2);
           (* Perform substitution in the rest of the context *)
           let ctx = subst_ctx s ctx in
           (* Add substitution to solution *)
