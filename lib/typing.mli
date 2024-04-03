@@ -10,8 +10,11 @@ module Type : sig
   val pp : Format.formatter -> t -> unit
 end
 
-type constraint_ctx
 type 'a context
 
+module ConstraintCtx : sig
+  type t
+end
+
 val init_context : 'a context
-val check : 'a context -> 'a Parser.terms -> Type.t * constraint_ctx
+val check : 'a context -> 'a Parser.terms -> Type.t * ConstraintCtx.t

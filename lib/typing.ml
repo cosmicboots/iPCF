@@ -35,7 +35,13 @@ module _ : Map.OrderedType = Type
 
 (** A type environment is a mapping from types to types *)
 module ConstraintCtx = struct
-  include Map.Make (Type) [@@deriving show]
+  (*include Map.Make (Type) [@@deriving show]*)
+
+  module TypeSetItem = struct
+    type t = Type.t * Type.t [@@deriving ord]
+  end
+
+  include Set.Make (TypeSetItem) [@@deriving show]
 
   (** [show env] pretty-prints the type environment [env] *)
   let show env =
@@ -43,18 +49,10 @@ module ConstraintCtx = struct
       (fun acc (k, v) ->
         Printf.sprintf "%s%s = %s, " acc (Type.show k) (Type.show v))
       "{ "
-      (bindings env)
+      (elements env)
     ^ "}"
   ;;
-
-  (** [union c1 c2] returns the union of the two type constraint environments
-      [c1] and [c2].
-
-      If a key is present in both [c1] and [c2], the value from [c2] is used. *)
-  let union = union (fun _ _ x -> Some x)
 end
-
-type constraint_ctx = Type.t ConstraintCtx.t
 
 (** A context is a mapping from variables to types *)
 type 'a context = 'a -> Type.t
@@ -70,7 +68,7 @@ let get_var_id () =
   id
 ;;
 
-let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
+let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * ConstraintCtx.t =
   fun ctx -> function
   | Var x -> ctx x, ConstraintCtx.empty
   | Abs t ->
@@ -85,7 +83,7 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
   | Const (Bool _) -> `Ground Bool, ConstraintCtx.empty
   | Succ e ->
     let t, c = check ctx e in
-    `Ground Nat, ConstraintCtx.add t (`Ground Type.Nat) c
+    `Ground Nat, ConstraintCtx.add (t, `Ground Type.Nat) c
   | App (e1, e2) ->
     (* Generate a new type variable for the result of the application *)
     let a = `Var (get_var_id ()) in
@@ -95,7 +93,7 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
     (* Merge the constraints from the two expressions and create a new
        constraint for the application *)
     let c =
-      ConstraintCtx.union c1 c2 |> ConstraintCtx.add t1 (`Arrow (t2, a))
+      ConstraintCtx.union c1 c2 |> ConstraintCtx.add (t1, `Arrow (t2, a))
     in
     a, c
   | IfThenElse (c, t, e) ->
@@ -109,9 +107,9 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
     let c =
       ConstraintCtx.union c1 c2
       |> ConstraintCtx.union c3
-      |> ConstraintCtx.add t1 (`Ground Type.Bool)
-      |> ConstraintCtx.add a t2
-      |> ConstraintCtx.add a t3
+      |> ConstraintCtx.add (t1, `Ground Type.Bool)
+      |> ConstraintCtx.add (a, t2)
+      |> ConstraintCtx.add (a, t3)
     in
     a, c
   | Box e ->
@@ -128,7 +126,7 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
     (* Infer types for the two expressions *)
     let tm, c1 = check ctx m in
     let tn, c2 = check ctx' n in
-    let c = ConstraintCtx.union c1 c2 |> ConstraintCtx.add tm (`Box t) in
+    let c = ConstraintCtx.union c1 c2 |> ConstraintCtx.add (tm, `Box t) in
     tn, c
   | Fix e ->
     let a = `Var (get_var_id ()) in
@@ -137,7 +135,7 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
       | Some x -> ctx x
     in
     let t, c = check ctx' e in
-    t, ConstraintCtx.add a t c
+    t, ConstraintCtx.add (a, t) c
 ;;
 
 module SubstKey = struct
@@ -158,7 +156,11 @@ module SubstMap = struct
 
   let apply : Type.t -> Type.t t -> Type.t =
     fun t s ->
-    let rec apply' = function
+    print_endline "=== Starting substitutions ===";
+    let rec apply' t =
+      Printf.printf "Applying     : %s\n" (Type.show t);
+      Printf.printf "Substitutions: %s\n" (_show s);
+      match t with
       | `Ground x -> `Ground x
       | `Arrow (t1, t2) -> `Arrow (apply' t1, apply' t2)
       | `Box t -> `Box (apply' t)
@@ -167,18 +169,33 @@ module SubstMap = struct
          | None -> `Var x
          | Some t -> apply' t)
     in
-    apply' t
+    let rec stabilize f t =
+      let r1 = f t in
+      let r2 = f r1 in
+      if Type.equal r1 r2
+      then (
+        print_endline "Result stabilized";
+        r1)
+      else (
+        print_endline "Result not stabilized. Rerun";
+        stabilize f r2)
+    in
+    stabilize apply' t
   ;;
 end
 
 type substitutions = Type.t SubstMap.t
 
-let subst_ctx : substitutions -> constraint_ctx -> constraint_ctx =
+(** [subst_ctx subst ctx] applies the substitutions [subst] to the constraint
+    context [ctx]. *)
+let subst_ctx : substitutions -> ConstraintCtx.t -> ConstraintCtx.t =
   fun subst ctx ->
   ConstraintCtx.map
-    (fun t ->
-      match t with
-      | `Var x -> SubstMap.find_opt (`Var x) subst |> Option.value ~default:t
+    (fun ((k, v) as t) ->
+      match k with
+      | `Var x ->
+        let v = SubstMap.find_opt (`Var x) subst |> Option.value ~default:v in
+        k, v
       | _ -> t)
     ctx
 ;;
@@ -188,7 +205,10 @@ let unify ctx =
     match ConstraintCtx.choose_opt ctx with
     | None -> s
     | Some (t1, t2) ->
-      let ctx = ConstraintCtx.remove t1 ctx in
+      let ctx = ConstraintCtx.remove (t1, t2) ctx in
+      Printf.printf "Substitutions: %s\n" (SubstMap._show s);
+      Printf.printf "Unifying %s with %s\n" (Type.show t1) (Type.show t2);
+      Printf.printf "Context: %s\n" (ConstraintCtx.show ctx);
       if Type.equal t1 t2
       then
         (* [t1 = t2] constraint is trivially satisfied, remove it from the
@@ -197,9 +217,14 @@ let unify ctx =
       else (
         match t1, t2 with
         | `Arrow (t1, t3), `Arrow (t2, t4) ->
-          ctx |> ConstraintCtx.add t1 t2 |> ConstraintCtx.add t3 t4 |> unify' s
-        | `Box t1, `Box t2 -> unify' s @@ ConstraintCtx.add t1 t2 ctx
+          let ctx =
+            ctx |> ConstraintCtx.add (t1, t2) |> ConstraintCtx.add (t3, t4)
+          in
+          Printf.printf "New context: %s\n" (ConstraintCtx.show ctx);
+          unify' s ctx
+        | `Box t1, `Box t2 -> unify' s @@ ConstraintCtx.add (t1, t2) ctx
         | t2, (`Var _ as t1) | (`Var _ as t1), t2 ->
+          Printf.printf "Unifying %s with %s\n" (Type.show t1) (Type.show t2);
           (* Perform substitution in the rest of the context *)
           let ctx = subst_ctx s ctx in
           (* Add substitution to solution *)
@@ -218,6 +243,7 @@ let%test "check tests" =
   next_var_id := 0;
   List.fold_left
     (fun acc (tst, sol) ->
+      Printf.printf "====== Checking: %s ======\n" tst;
       (* Reset global state *)
       next_var_id := 0;
       let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
@@ -227,8 +253,9 @@ let%test "check tests" =
       if not chk
       then
         Printf.printf
-          "%s : %s -| %s\nExpected: %s\n\n"
+          "%s : %s : %s -| %s\nExpected: %s\n\n"
           tst
+          (Type.show t)
           (Type.show pt)
           (ConstraintCtx.show c)
           (Type.show sol);
