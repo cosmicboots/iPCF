@@ -140,36 +140,6 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * constraint_ctx =
     t, ConstraintCtx.add a t c
 ;;
 
-let%test "check tests" =
-  List.fold_left
-    (fun acc (tst, sol) ->
-      (* Reset global state *)
-      next_var_id := 0;
-      let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
-      let chk = t = sol in
-      if not chk
-      then
-        Printf.printf
-          "%s : %s -| %s\nExpected: %s\n\n"
-          tst
-          (Type.show t)
-          (ConstraintCtx.show c)
-          (Type.show sol);
-      acc && chk)
-    true
-    [ "0", `Ground Type.Nat
-    ; "succ 0", `Ground Nat
-    ; "true", `Ground Bool
-    ; {|\x . x|}, `Arrow (`Var 0, `Var 0)
-    ; {|\x . succ x|}, `Arrow (`Ground Nat, `Ground Nat)
-    ; ( {|\x . \y . x y|}
-      , `Arrow (`Arrow (`Var 0, `Var 2), `Arrow (`Var 0, `Var 2)) )
-    ; {| (\x . if x then 0 else succ 0) true |}, `Ground Nat
-    ; {| fix x in 0 |}, `Ground Nat
-    ; {| let box x <- box 0 in x |}, `Ground Nat
-    ]
-;;
-
 module SubstKey = struct
   type t = [ `Var of int ] [@@deriving ord]
 end
@@ -177,13 +147,27 @@ end
 module SubstMap = struct
   include Map.Make (SubstKey)
 
-  let show m =
+  let _show m =
     let rec f = function
       | (`Var x, v) :: r ->
         Printf.sprintf "{%s / %s}, %s" (Type.show (`Var x)) (Type.show v) (f r)
       | _ -> ""
     in
     f (bindings m)
+  ;;
+
+  let apply : Type.t -> Type.t t -> Type.t =
+    fun t s ->
+    let rec apply' = function
+      | `Ground x -> `Ground x
+      | `Arrow (t1, t2) -> `Arrow (apply' t1, apply' t2)
+      | `Box t -> `Box (apply' t)
+      | `Var x ->
+        (match find_opt (`Var x) s with
+         | None -> `Var x
+         | Some t -> apply' t)
+    in
+    apply' t
   ;;
 end
 
@@ -229,16 +213,36 @@ let unify ctx =
   unify' SubstMap.empty ctx
 ;;
 
-let%test "unify" =
-  let tst = {| \x . \y . x y |} in
-  let sol = `Arrow (`Arrow (`Var 2, `Var 3), `Arrow (`Var 1, `Var 2)) in
-  let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
-  let s = unify c in
-  Printf.printf
-    "unify | %s : %s -| %s\nExpected: %s\n\n"
-    tst
-    (Type.show t)
-    (SubstMap.show s)
-    (Type.show sol);
-  t = sol
+let%test "check tests" =
+  (* Reset global state *)
+  next_var_id := 0;
+  List.fold_left
+    (fun acc (tst, sol) ->
+      (* Reset global state *)
+      next_var_id := 0;
+      let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
+      let s = unify c in
+      let pt = SubstMap.apply t s in
+      let chk = pt = sol in
+      if not chk
+      then
+        Printf.printf
+          "%s : %s -| %s\nExpected: %s\n\n"
+          tst
+          (Type.show pt)
+          (ConstraintCtx.show c)
+          (Type.show sol);
+      acc && chk)
+    true
+    [ "0", `Ground Type.Nat
+    ; "succ 0", `Ground Nat
+    ; "true", `Ground Bool
+    ; {|\x . x|}, `Arrow (`Var 0, `Var 0)
+    ; ( {| \x . \y . x y |}
+      , `Arrow (`Arrow (`Var 1, `Var 2), `Arrow (`Var 1, `Var 2)) )
+    ; {| fix x in 0 |}, `Ground Nat
+    ; {| let box x <- box 0 in x |}, `Ground Nat
+    ; {| (\x . if x then 0 else succ 0) true |}, `Ground Nat
+    ; {|\x . succ x|}, `Arrow (`Ground Nat, `Ground Nat)
+    ]
 ;;
