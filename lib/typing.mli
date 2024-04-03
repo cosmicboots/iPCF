@@ -18,3 +18,4 @@ end
 
 val init_context : 'a context
 val check : 'a context -> 'a Parser.terms -> Type.t * ConstraintCtx.t
+val infer_type : 'a context -> 'a Parser.terms -> Type.t

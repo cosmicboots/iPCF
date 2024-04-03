@@ -21,7 +21,7 @@ You can exit the REPL with either [exit] or [CTRL+D]
       let eval_res = ast |> Evaluator.reduce in
       let eval_str = [%derive.show: string Parser.terms] eval_res in
       Printf.printf "%s : " eval_str;
-      let t, _c = ast |> Typing.check Typing.init_context in
+      let t = ast |> Typing.infer_type Typing.init_context in
       Printf.printf "%s\n%!" @@ Typing.Type.show t;
       loop ()
   in

@@ -168,13 +168,7 @@ module SubstMap = struct
     let rec stabilize f t =
       let r1 = f t in
       let r2 = f r1 in
-      if Type.equal r1 r2
-      then (
-        print_endline "Result stabilized";
-        r1)
-      else (
-        print_endline "Result not stabilized. Rerun";
-        stabilize f r2)
+      if Type.equal r1 r2 then r1 else stabilize f r2
     in
     stabilize apply' t
   ;;
@@ -263,4 +257,10 @@ let%test "check tests" =
     ; {| (\x . if x then 0 else succ 0) true |}, `Ground Nat
     ; {|\x . succ x|}, `Arrow (`Ground Nat, `Ground Nat)
     ]
+;;
+
+let infer_type ctx e =
+  let t, c = check ctx e in
+  let s = unify c in
+  SubstMap.apply t s
 ;;
