@@ -231,7 +231,7 @@ let unify ctx =
 
 let%test "unify" =
   let tst = {| \x . \y . x y |} in
-  let sol = `Ground Type.Nat in
+  let sol = `Arrow (`Arrow (`Var 2, `Var 3), `Arrow (`Var 1, `Var 2)) in
   let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
   let s = unify c in
   Printf.printf
