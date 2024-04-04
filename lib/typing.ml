@@ -14,6 +14,18 @@ module Type = struct
     ]
   [@@deriving ord, eq]
 
+  let rec type_of_int x =
+    let make code = String.make 1 (Char.chr (code + Char.code 'a')) in
+    if x / 26 = 0 then make x else type_of_int ((x / 26) - 1) ^ make (x mod 26)
+  ;;
+
+  let%test "type_of_int tests" =
+    List.fold_left
+      (fun acc (x, sol) -> acc && type_of_int x = sol)
+      true
+      [ 0, "a"; 1, "b"; 25, "z"; 26, "aa"; 27, "ab"; 28, "ac"; 52, "ba" ]
+  ;;
+
   let show t =
     let rec show' = function
       | `Ground x -> show_ground_type x
@@ -22,7 +34,7 @@ module Type = struct
         Printf.sprintf "(%s) -> %s" (show' t1) (show' t2)
       | `Arrow (t1, t2) -> Printf.sprintf "%s -> %s" (show' t1) (show' t2)
       | `Box t -> Printf.sprintf "Box %s" (show' t)
-      | `Var s -> Printf.sprintf "'%c" @@ Char.chr (s + Char.code 'a')
+      | `Var s -> Printf.sprintf "'%s" @@ type_of_int s
     in
     show' t
   ;;
@@ -228,7 +240,6 @@ let%test "check tests" =
   next_var_id := 0;
   List.fold_left
     (fun acc (tst, sol) ->
-      Printf.printf "====== Checking: %s ======\n" tst;
       (* Reset global state *)
       next_var_id := 0;
       let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
@@ -260,6 +271,8 @@ let%test "check tests" =
 ;;
 
 let infer_type ctx e =
+  (* Reset global state *)
+  next_var_id := 0;
   let t, c = check ctx e in
   let s = unify c in
   SubstMap.apply t s
