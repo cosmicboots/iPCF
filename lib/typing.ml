@@ -1,3 +1,7 @@
+let ( let* ) = Result.bind
+
+type type_error = NotInContext [@@deriving show]
+
 module Type = struct
   type ground_type =
     | Nat
@@ -67,9 +71,9 @@ module ConstraintCtx = struct
 end
 
 (** A context is a mapping from variables to types *)
-type 'a context = 'a -> Type.t
+type 'a context = 'a -> (Type.t, type_error) result
 
-let init_context _ = raise @@ Invalid_argument "Not in context"
+let init_context _ = Error NotInContext
 let next_var_id = ref 0
 
 (** [get_var_id ()] returns a fresh variable identifier and increments the
@@ -80,41 +84,50 @@ let get_var_id () =
   id
 ;;
 
-let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * ConstraintCtx.t =
+let rec check :
+          'a.
+          'a context
+          -> 'a Parser.terms
+          -> (Type.t * ConstraintCtx.t, type_error) result
+  =
   fun ctx -> function
-  | Var x -> ctx x, ConstraintCtx.empty
+  | Var x ->
+    let* ctx' = ctx x in
+    Ok (ctx', ConstraintCtx.empty)
   | Abs t ->
     let id = get_var_id () in
     let ctx' = function
-      | None -> `Var id
-      | Some x -> ctx x
+      | None -> Ok (`Var id)
+      | Some x ->
+        let* ctx' = ctx x in
+        Ok ctx'
     in
-    let t', env = check ctx' t in
-    `Arrow (`Var id, t'), env
-  | Const (Nat _) -> `Ground Nat, ConstraintCtx.empty
-  | Const (Bool _) -> `Ground Bool, ConstraintCtx.empty
+    let* t', env = check ctx' t in
+    Ok (`Arrow (`Var id, t'), env)
+  | Const (Nat _) -> Ok (`Ground Nat, ConstraintCtx.empty)
+  | Const (Bool _) -> Ok (`Ground Bool, ConstraintCtx.empty)
   | Succ e ->
-    let t, c = check ctx e in
-    `Ground Nat, ConstraintCtx.add (t, `Ground Type.Nat) c
+    let* t, c = check ctx e in
+    Ok (`Ground Type.Nat, ConstraintCtx.add (t, `Ground Type.Nat) c)
   | App (e1, e2) ->
     (* Generate a new type variable for the result of the application *)
     let a = `Var (get_var_id ()) in
     (* Infer the types of the two expressions *)
-    let t1, c1 = check ctx e1 in
-    let t2, c2 = check ctx e2 in
+    let* t1, c1 = check ctx e1 in
+    let* t2, c2 = check ctx e2 in
     (* Merge the constraints from the two expressions and create a new
        constraint for the application *)
     let c =
       ConstraintCtx.union c1 c2 |> ConstraintCtx.add (t1, `Arrow (t2, a))
     in
-    a, c
+    Ok (a, c)
   | IfThenElse (c, t, e) ->
     (* Generate a new type variable for the result of the if-then-else *)
     let a = `Var (get_var_id ()) in
     (* Infer types for subexpressions *)
-    let t1, c1 = check ctx c in
-    let t2, c2 = check ctx t in
-    let t3, c3 = check ctx e in
+    let* t1, c1 = check ctx c in
+    let* t2, c2 = check ctx t in
+    let* t3, c3 = check ctx e in
     (* Generate new constraint context *)
     let c =
       ConstraintCtx.union c1 c2
@@ -123,31 +136,35 @@ let rec check : 'a. 'a context -> 'a Parser.terms -> Type.t * ConstraintCtx.t =
       |> ConstraintCtx.add (a, t2)
       |> ConstraintCtx.add (a, t3)
     in
-    a, c
+    Ok (a, c)
   | Box e ->
-    let t, c = check ctx e in
-    `Box t, c
+    let* t, c = check ctx e in
+    Ok (`Box t, c)
   | Let (m, n) ->
     (* Generate a new type variable for the result of the let box expression *)
     let t = `Var (get_var_id ()) in
     (* Unwrap the let box binding variable context *)
     let ctx' = function
-      | None -> t
-      | Some x -> ctx x
+      | None -> Ok t
+      | Some x ->
+        let* ctx' = ctx x in
+        Ok ctx'
     in
     (* Infer types for the two expressions *)
-    let tm, c1 = check ctx m in
-    let tn, c2 = check ctx' n in
+    let* tm, c1 = check ctx m in
+    let* tn, c2 = check ctx' n in
     let c = ConstraintCtx.union c1 c2 |> ConstraintCtx.add (tm, `Box t) in
-    tn, c
+    Ok (tn, c)
   | Fix e ->
     let a = `Var (get_var_id ()) in
     let ctx' = function
-      | None -> `Box a
-      | Some x -> ctx x
+      | None -> Ok (`Box a)
+      | Some x ->
+        let* ctx' = ctx x in
+        Ok ctx'
     in
-    let t, c = check ctx' e in
-    t, ConstraintCtx.add (a, t) c
+    let* t, c = check ctx' e in
+    Ok (t, ConstraintCtx.add (a, t) c)
 ;;
 
 module SubstKey = struct
@@ -242,7 +259,9 @@ let%test "check tests" =
     (fun acc (tst, sol) ->
       (* Reset global state *)
       next_var_id := 0;
-      let t, c = check init_context (Parser.parse @@ Lexer.lex tst) in
+      let t, c =
+        Result.get_ok @@ check init_context (Parser.parse @@ Lexer.lex tst)
+      in
       let s = unify c in
       let pt = SubstMap.apply t s in
       let chk = pt = sol in
@@ -273,7 +292,7 @@ let%test "check tests" =
 let infer_type ctx e =
   (* Reset global state *)
   next_var_id := 0;
-  let t, c = check ctx e in
+  let* t, c = check ctx e in
   let s = unify c in
-  SubstMap.apply t s
+  Ok (SubstMap.apply t s)
 ;;

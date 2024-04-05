@@ -1,3 +1,8 @@
+type type_error = NotInContext
+
+val pp_type_error : Format.formatter -> type_error -> unit
+val show_type_error : type_error -> string
+
 module Type : sig
   type ground_type =
     | Nat
@@ -17,5 +22,10 @@ module ConstraintCtx : sig
 end
 
 val init_context : 'a context
-val check : 'a context -> 'a Parser.terms -> Type.t * ConstraintCtx.t
-val infer_type : 'a context -> 'a Parser.terms -> Type.t
+
+val check
+  :  'a context
+  -> 'a Parser.terms
+  -> (Type.t * ConstraintCtx.t, type_error) result
+
+val infer_type : 'a context -> 'a Parser.terms -> (Type.t, type_error) result

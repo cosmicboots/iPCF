@@ -31,11 +31,16 @@ You can exit the REPL with either [exit] or [CTRL+D]
         else [%show: string Parser.terms] eval_res
       in
       (* Print results *)
-      ANSITerminal.(
-        printf [ magenta ] "%s" eval_str;
-        printf [ blue ] " : ";
-        printf [ green ] "%s" (Typing.Type.show t));
-      Printf.printf "\n%!";
+      (match t with
+       | Ok t ->
+         ANSITerminal.(
+           printf [ magenta ] "%s" eval_str;
+           printf [ blue ] " : ";
+           printf [ green ] "%s" (Typing.Type.show t));
+         Printf.printf "\n%!"
+       | Error e ->
+         ANSITerminal.(printf [ red ] "%s" @@ Typing.show_type_error e);
+         Printf.printf "\n%!");
       loop ()
   in
   loop ()
