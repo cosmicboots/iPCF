@@ -16,7 +16,14 @@ let demo () =
   @@ [%derive.show: string Parser.terms] evald
 ;;
 
-let repl_t = Term.(const Repl.run $ const ())
+let debug =
+  Arg.(
+    value
+    & flag
+    & info [ "debug" ] ~doc:"Print internal representation of terms")
+;;
+
+let repl_t = Term.(const Repl.run $ debug)
 let repl_cmd = Cmd.v (Cmd.info "repl" ~doc:"Start the interactive REPL") repl_t
 
 let demo_cmd =

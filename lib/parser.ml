@@ -8,7 +8,6 @@ type mybool =
 type nat =
   | Zero
   | Succ of nat
-  | Pred of nat
 [@@deriving show { with_path = false }, eq, ord]
 
 type ground_terms =
@@ -29,6 +28,35 @@ type 'a terms =
   | Let of 'a terms * 'a option terms
   | Fix of 'a option terms
 [@@deriving show { with_path = false }, eq, ord]
+
+let show_terms a =
+  let rec pp_terms' (a : string terms) =
+    match a with
+    | Var x -> x
+    | Const (Bool True) -> "true"
+    | Const (Bool False) -> "false"
+    | Const (Nat Zero) -> "0"
+    | Const (Nat x) ->
+      let rec const_of_nat = function
+        | Zero -> 0
+        | Succ x -> 1 + const_of_nat x
+      in
+      string_of_int @@ const_of_nat x
+    | App (x, y) -> Printf.sprintf "(%s %s)" (pp_terms' x) (pp_terms' y)
+    | Abs _ -> Printf.sprintf "(fun)"
+    | IfThenElse (c, t, e) ->
+      Printf.sprintf
+        "if %s then %s else %s"
+        (pp_terms' c)
+        (pp_terms' t)
+        (pp_terms' e)
+    | Succ x -> Printf.sprintf "succ %s" (pp_terms' x)
+    | Box x -> Printf.sprintf "box %s" (pp_terms' x)
+    | Let _ -> "(let)"
+    | Fix _ -> "(fix)"
+  in
+  pp_terms' a
+;;
 
 (** [bind_terms f a] performs a monadic bind on the term [a] using the function
     [f]. *)

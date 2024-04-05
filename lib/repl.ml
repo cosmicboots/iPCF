@@ -1,4 +1,4 @@
-let run () =
+let run debug =
   print_endline
     {|
 =========================
@@ -25,7 +25,11 @@ You can exit the REPL with either [exit] or [CTRL+D]
       let t = ast |> Typing.infer_type Typing.init_context in
       (* Evaluation *)
       let eval_res = ast |> Evaluator.reduce in
-      let eval_str = [%derive.show: string Parser.terms] eval_res in
+      let eval_str =
+        if not debug
+        then Parser.show_terms eval_res
+        else [%show: string Parser.terms] eval_res
+      in
       (* Print results *)
       ANSITerminal.(
         printf [ magenta ] "%s" eval_str;
