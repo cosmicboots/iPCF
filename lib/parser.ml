@@ -185,5 +185,5 @@ let%test {|parser:  \ x . \ y . x y))|} =
 let%test {|parser: If conditionals + succ|} =
   let prog = {|if x then succ z else succ 0|} in
   let tokens = Lexer.lex prog in
-  parse tokens = IfThenElse (Var "x", Succ (Var "z"), Succ (Const (Nat Zero)))
+  parse tokens = IfThenElse (Var "x", Succ (Var "z"), Const (Nat (Succ Zero)))
 ;;
