@@ -17,12 +17,21 @@ You can exit the REPL with either [exit] or [CTRL+D]
     | "quit" -> ()
     | "" -> loop ()
     | _ ->
-      let ast = cmd |> Lexer.lex |> Parser.parse in
+      (* Lexing *)
+      let tokens = Lexer.lex cmd in
+      (* Parsing *)
+      let ast = Parser.parse tokens in
+      (* Type inference *)
+      let t = ast |> Typing.infer_type Typing.init_context in
+      (* Evaluation *)
       let eval_res = ast |> Evaluator.reduce in
       let eval_str = [%derive.show: string Parser.terms] eval_res in
-      Printf.printf "%s : " eval_str;
-      let t = ast |> Typing.infer_type Typing.init_context in
-      Printf.printf "%s\n%!" @@ Typing.Type.show t;
+      (* Print results *)
+      ANSITerminal.(
+        printf [ magenta ] "%s" eval_str;
+        printf [ blue ] " : ";
+        printf [ green ] "%s" (Typing.Type.show t));
+      Printf.printf "\n%!";
       loop ()
   in
   loop ()

@@ -1,7 +1,7 @@
 (library
  (name ipcf)
  (inline_tests)
- (libraries ocamline)
+ (libraries ocamline ANSITerminal)
  (preprocess
   (pps
    ppx_deriving.show
