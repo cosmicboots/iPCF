@@ -15,6 +15,7 @@ type t =
   | Zero
   | Succ
   | Pred
+  | Number of int
   (* Paranthesis *)
   | Lparen
   | Rparen
@@ -95,6 +96,13 @@ let lex s =
       in
       let ident, s = g [ c ] s in
       f (ident :: tokens) s
+    | c :: s when is_digit c ->
+      let rec g acc = function
+        | c :: s when is_digit c -> g (c :: acc) s
+        | cs -> Number (int_of_string @@ string_of_chars @@ List.rev acc), cs
+      in
+      let num, s = g [ c ] s in
+      f (num :: tokens) s
     | c :: _ -> raise (Lexing_error ("unexpected character" ^ String.make 1 c))
   in
   f [] @@ chars_of_string s
@@ -110,12 +118,13 @@ let%expect_test "lexer" =
     true false
     if then else
     let in box <- fix
-    zero 0 succ pred x|};
+    zero 0 succ pred x
+    1234|};
   [%expect
     {|
     [Lexer.Lparen; Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot;
       (Lexer.Ident "z"); Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
       Lexer.True; Lexer.False; Lexer.If; Lexer.Then; Lexer.Else; Lexer.Let;
       Lexer.In; Lexer.Box; Lexer.Lt; Lexer.Dash; Lexer.Fix; Lexer.Zero;
-      Lexer.Zero; Lexer.Succ; Lexer.Pred; (Lexer.Ident "x")] |}]
+      Lexer.Zero; Lexer.Succ; Lexer.Pred; (Lexer.Ident "x"); (Lexer.Number 1234)] |}]
 ;;

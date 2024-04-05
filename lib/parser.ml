@@ -91,6 +91,13 @@ let parse (input : Lexer.t list) =
         :: r ) -> sr i (PE (IfThenElse (cond, then_body, else_body)) :: r)
     (* Successor *)
     | i, PE x :: Tok Lexer.Succ :: r -> sr i (PE (Succ x) :: r)
+    (* Arbitrary number literals *)
+    | i, Tok (Lexer.Number n) :: r ->
+      let rec expand_lit = function
+        | 0 -> Zero
+        | n -> Succ (expand_lit (n - 1))
+      in
+      sr i (PE (Const (Nat (expand_lit n))) :: r)
     (* Box *)
     | i, PE x :: Tok Lexer.Box :: r -> sr i (PE (Box x) :: r)
     (* === Shift rules === *)
