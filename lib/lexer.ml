@@ -108,23 +108,40 @@ let lex s =
   f [] @@ chars_of_string s
 ;;
 
-let%expect_test "lexer" =
-  Printf.printf "%s"
-  @@ [%derive.show: t list]
-  @@ lex
-       {|
+let%test "lexer" =
+  lex
+    {|
     (\ x . z)
     longIdent1 .
     true false
     if then else
     let in box <- fix
     zero 0 succ pred x
-    1234|};
-  [%expect
-    {|
-    [Lexer.Lparen; Lexer.Backslash; (Lexer.Ident "x"); Lexer.Dot;
-      (Lexer.Ident "z"); Lexer.Rparen; (Lexer.Ident "longIdent1"); Lexer.Dot;
-      Lexer.True; Lexer.False; Lexer.If; Lexer.Then; Lexer.Else; Lexer.Let;
-      Lexer.In; Lexer.Box; Lexer.Lt; Lexer.Dash; Lexer.Fix; Lexer.Zero;
-      Lexer.Zero; Lexer.Succ; Lexer.Pred; (Lexer.Ident "x"); (Lexer.Number 1234)] |}]
+    1234|}
+  = [ Lparen
+    ; Backslash
+    ; Ident "x"
+    ; Dot
+    ; Ident "z"
+    ; Rparen
+    ; Ident "longIdent1"
+    ; Dot
+    ; True
+    ; False
+    ; If
+    ; Then
+    ; Else
+    ; Let
+    ; In
+    ; Box
+    ; Lt
+    ; Dash
+    ; Fix
+    ; Zero
+    ; Zero
+    ; Succ
+    ; Pred
+    ; Ident "x"
+    ; Number 1234
+    ]
 ;;

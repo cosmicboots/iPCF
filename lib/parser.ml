@@ -144,19 +144,14 @@ let%test "fix binding" =
     ]
 ;;
 
-let%expect_test {|parser:  \ x . \ y . x y))|} =
+let%test {|parser:  \ x . \ y . x y))|} =
   let prog = {|\ x . \ y . x y|} in
   let tokens = Lexer.lex prog in
-  Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
-  [%expect {|
-    AST: (Abs (Abs (App ((Var (Some None)), (Var None))))) |}]
+  parse tokens = Abs (Abs (App (Var (Some None), Var None)))
 ;;
 
-let%expect_test {|parser: If conditionals + succ|} =
+let%test {|parser: If conditionals + succ|} =
   let prog = {|if x then succ z else succ 0|} in
   let tokens = Lexer.lex prog in
-  Printf.printf "AST: %s\n" ([%derive.show: string terms] (parse tokens));
-  [%expect
-    {|
-    AST: (IfThenElse ((Var "x"), (Succ (Var "z")), (Succ (Const (Nat Zero))))) |}]
+  parse tokens = IfThenElse (Var "x", Succ (Var "z"), Succ (Const (Nat Zero)))
 ;;
