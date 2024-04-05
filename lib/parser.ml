@@ -117,8 +117,12 @@ let parse (input : Lexer.t list) =
         :: PE cond
         :: Tok Lexer.If
         :: r ) -> sr i (PE (IfThenElse (cond, then_body, else_body)) :: r)
-    (* Successor *)
+    (* Successor of const *)
+    | i, PE (Const (Nat x)) :: Tok Lexer.Succ :: r ->
+      sr i (PE (Const (Nat (Succ x))) :: r)
+    (* Successor of arbitrary expression *)
     | i, PE x :: Tok Lexer.Succ :: r -> sr i (PE (Succ x) :: r)
+    (* Abstraction *)
     (* Arbitrary number literals *)
     | i, Tok (Lexer.Number n) :: r ->
       let rec expand_lit = function
