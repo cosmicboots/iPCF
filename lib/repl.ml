@@ -39,7 +39,7 @@ You can exit the REPL with either [exit] or [CTRL+D]
            printf [ green ] "%s" (Typing.Type.show t));
          Printf.printf "\n%!"
        | Error e ->
-         ANSITerminal.(printf [ red ] "%s" @@ Typing.show_type_error e);
+         ANSITerminal.(printf [ red ] "TypeError: %s" @@ Typing.show_type_error e);
          Printf.printf "\n%!");
       loop ()
   in

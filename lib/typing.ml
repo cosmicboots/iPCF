@@ -1,6 +1,9 @@
 let ( let* ) = Result.bind
 
-type type_error = NotInContext [@@deriving show]
+type type_error =
+  | NotInContext
+  | UnificationError of string
+[@@deriving show { with_path = false }]
 
 module Type = struct
   type ground_type =
@@ -222,7 +225,7 @@ let subst_ctx : substitutions -> ConstraintCtx.t -> ConstraintCtx.t =
 let unify ctx =
   let rec unify' s ctx =
     match ConstraintCtx.choose_opt ctx with
-    | None -> s
+    | None -> Ok s
     | Some (t1, t2) ->
       let ctx = ConstraintCtx.remove (t1, t2) ctx in
       if Type.equal t1 t2
@@ -245,9 +248,9 @@ let unify ctx =
           let s = SubstMap.add t1 t2 s in
           ctx |> unify' s
         | t1, t2 ->
-          raise
-          @@ Invalid_argument
-               (Printf.sprintf "%s = %s" (Type.show t1) (Type.show t2)))
+          Error
+            (UnificationError
+               (Printf.sprintf "%s = %s" (Type.show t1) (Type.show t2))))
   in
   unify' SubstMap.empty ctx
 ;;
@@ -263,7 +266,7 @@ let%test "check tests" =
         Result.get_ok @@ check init_context (Parser.parse @@ Lexer.lex tst)
       in
       let s = unify c in
-      let pt = SubstMap.apply t s in
+      let pt = SubstMap.apply t @@ Result.get_ok s in
       let chk = pt = sol in
       if not chk
       then
@@ -293,6 +296,6 @@ let infer_type ctx e =
   (* Reset global state *)
   next_var_id := 0;
   let* t, c = check ctx e in
-  let s = unify c in
+  let* s = unify c in
   Ok (SubstMap.apply t s)
 ;;
