@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "An iPCF interpreter"
 description:
-  "An interpreter for the iPCF language, a simple extension of the simply-typed lambda calculus with intentional."
+  "An interpreter for the iPCF language, a simple extension of the simply-typed lambda calculus with intentionality."
 maintainer: ["Thom Dickson"]
 authors: ["Thom Dickson"]
 license: "LICENSE"
@@ -17,6 +17,7 @@ depends: [
   "cmdliner"
   "ocamline"
   "ppx_inline_test"
+  "ANSITerminal"
   "odoc" {with-doc}
 ]
 build: [

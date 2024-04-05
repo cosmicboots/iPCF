@@ -17,8 +17,16 @@
  (name ipcf)
  (synopsis "An iPCF interpreter")
  (description
-  "An interpreter for the iPCF language, a simple extension of the simply-typed lambda calculus with intentional.")
- (depends ocaml dune ppx_deriving core cmdliner ocamline ppx_inline_test)
+  "An interpreter for the iPCF language, a simple extension of the simply-typed lambda calculus with intentionality.")
+ (depends
+  ocaml
+  dune
+  ppx_deriving
+  core
+  cmdliner
+  ocamline
+  ppx_inline_test
+  ANSITerminal)
  (tags
   (ipcf pcf "lambda calculus")))
 
