@@ -20,6 +20,7 @@ type 'a terms =
   | Var of 'a
   | Const of ground_terms
   | Succ of 'a terms
+  | Pred of 'a terms
   | App of 'a terms * 'a terms
   | Abs of 'a option terms
   | IfThenElse of 'a terms * 'a terms * 'a terms
@@ -51,6 +52,7 @@ let show_terms a =
         (pp_terms' t)
         (pp_terms' e)
     | Succ x -> Printf.sprintf "succ %s" (pp_terms' x)
+    | Pred x -> Printf.sprintf "pred %s" (pp_terms' x)
     | Box x -> Printf.sprintf "box %s" (pp_terms' x)
     | Let _ -> "(let)"
     | Fix _ -> "(fix)"
@@ -74,6 +76,7 @@ let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
   | IfThenElse (c, t, e) ->
     IfThenElse (bind_terms f c, bind_terms f t, bind_terms f e)
   | Succ x -> Succ (bind_terms f x)
+  | Pred x -> Pred (bind_terms f x)
   (* Boxed terms *)
   | Box m -> Box (bind_terms f m)
   | Fix m -> Fix (bind_terms f' m)
@@ -122,7 +125,11 @@ let parse (input : Lexer.t list) =
       sr i (PE (Const (Nat (Succ x))) :: r)
     (* Successor of arbitrary expression *)
     | i, PE x :: Tok Lexer.Succ :: r -> sr i (PE (Succ x) :: r)
-    (* Abstraction *)
+    (* Pred of const *)
+    | i, PE (Const (Nat (Succ x))) :: Tok Lexer.Pred :: r ->
+      sr i (PE (Const (Nat x)) :: r)
+    (* Pred of arbitrary expression *)
+    | i, PE x :: Tok Lexer.Pred :: r -> sr i (PE (Pred x) :: r)
     (* Arbitrary number literals *)
     | i, Tok (Lexer.Number n) :: r ->
       let rec expand_lit = function

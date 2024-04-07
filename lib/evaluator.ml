@@ -29,6 +29,7 @@ let root_reduction =
     | Let (Box m, n) -> subst n m
     | Fix m -> subst m (Box (Fix m))
     | Succ (Const (Nat n)) -> Const (Nat (Succ n))
+    | Pred (Const (Nat (Succ n))) -> Const (Nat n)
     | t -> t)
 ;;
 
@@ -46,6 +47,7 @@ let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
   | Let (m, n) -> Let (redstep m, redstep n)
   | Fix m -> Fix (redstep m)
   | Succ x -> Succ (redstep x)
+  | Pred x -> Pred (redstep x)
 ;;
 
 let%test "single reduction step" =

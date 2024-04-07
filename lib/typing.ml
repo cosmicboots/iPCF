@@ -112,6 +112,9 @@ let rec check :
   | Succ e ->
     let* t, c = check ctx e in
     Ok (`Ground Type.Nat, ConstraintCtx.add (t, `Ground Type.Nat) c)
+  | Pred e ->
+    let* t, c = check ctx e in
+    Ok (`Ground Type.Nat, ConstraintCtx.add (t, `Ground Type.Nat) c)
   | App (e1, e2) ->
     (* Generate a new type variable for the result of the application *)
     let a = `Var (get_var_id ()) in
