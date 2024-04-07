@@ -24,6 +24,7 @@ type 'a terms =
   | App of 'a terms * 'a terms
   | Abs of 'a option terms
   | IfThenElse of 'a terms * 'a terms * 'a terms
+  | IsZero of 'a terms
   (* Boxed terms *)
   | Box of 'a terms
   | Let of 'a terms * 'a option terms
@@ -53,6 +54,7 @@ let show_terms a =
         (pp_terms' e)
     | Succ x -> Printf.sprintf "succ %s" (pp_terms' x)
     | Pred x -> Printf.sprintf "pred %s" (pp_terms' x)
+    | IsZero x -> Printf.sprintf "%s?" (pp_terms' x)
     | Box x -> Printf.sprintf "box %s" (pp_terms' x)
     | Let _ -> "(let)"
     | Fix _ -> "(fix)"
@@ -77,6 +79,7 @@ let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
     IfThenElse (bind_terms f c, bind_terms f t, bind_terms f e)
   | Succ x -> Succ (bind_terms f x)
   | Pred x -> Pred (bind_terms f x)
+  | IsZero x -> IsZero (bind_terms f x)
   (* Boxed terms *)
   | Box m -> Box (bind_terms f m)
   | Fix m -> Fix (bind_terms f' m)
@@ -130,6 +133,8 @@ let parse (input : Lexer.t list) =
       sr i (PE (Const (Nat x)) :: r)
     (* Pred of arbitrary expression *)
     | i, PE x :: Tok Lexer.Pred :: r -> sr i (PE (Pred x) :: r)
+    (* IsZero *)
+    | i, Tok Lexer.IsZero :: PE e :: r -> sr i (PE (IsZero e) :: r)
     (* Arbitrary number literals *)
     | i, Tok (Lexer.Number n) :: r ->
       let rec expand_lit = function
@@ -190,7 +195,8 @@ let%test {|parser:  \ x . \ y . x y))|} =
 ;;
 
 let%test {|parser: If conditionals + succ|} =
-  let prog = {|if x then succ z else succ 0|} in
+  let prog = {|if x? then succ z else succ 0|} in
   let tokens = Lexer.lex prog in
-  parse tokens = IfThenElse (Var "x", Succ (Var "z"), Const (Nat (Succ Zero)))
+  parse tokens
+  = IfThenElse (IsZero (Var "x"), Succ (Var "z"), Const (Nat (Succ Zero)))
 ;;

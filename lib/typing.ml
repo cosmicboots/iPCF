@@ -87,11 +87,11 @@ let get_var_id () =
   id
 ;;
 
-let rec check :
-          'a.
-          'a context
-          -> 'a Parser.terms
-          -> (Type.t * ConstraintCtx.t, type_error) result
+let rec check
+  : 'a.
+  'a context
+  -> 'a Parser.terms
+  -> (Type.t * ConstraintCtx.t, type_error) result
   =
   fun ctx -> function
   | Var x ->
@@ -115,6 +115,9 @@ let rec check :
   | Pred e ->
     let* t, c = check ctx e in
     Ok (`Ground Type.Nat, ConstraintCtx.add (t, `Ground Type.Nat) c)
+  | IsZero e ->
+    let* t, c = check ctx e in
+    Ok (`Ground Type.Bool, ConstraintCtx.add (t, `Ground Type.Nat) c)
   | App (e1, e2) ->
     (* Generate a new type variable for the result of the application *)
     let a = `Var (get_var_id ()) in
