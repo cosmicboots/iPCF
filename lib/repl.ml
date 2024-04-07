@@ -1,15 +1,35 @@
 let ( let* ) = Result.bind
 
+type error =
+  | ParseError of Parser.parse_error
+  | TypeError of Typing.type_error
+  | ReplError of string
+
+let ( let$ ) r code =
+  match r with
+  | Ok x -> code x
+  | Error x -> Error (ParseError x)
+;;
+
+let ( let+ ) r code =
+  match r with
+  | Ok x -> code x
+  | Error x -> Error (TypeError x)
+;;
+
 module Context = Map.Make (String) [@@deriving show]
 
 let evaluate ctx term =
   (* Lexing *)
   let tokens = Lexer.lex term in
   (* Parsing *)
-  let ast = Parser.parse tokens in
-  let ast = Parser.bind_terms (fun x -> Context.find x ctx) ast in
+  let$ ast = Parser.parse tokens in
+  let* ast =
+    try Ok (Parser.bind_terms (fun x -> Context.find x ctx) ast) with
+    | Not_found -> Error (ReplError "Variable not found in REPL context")
+  in
   (* Type inference *)
-  let* t = ast |> Typing.infer_type Typing.init_context in
+  let+ t = ast |> Typing.infer_type Typing.init_context in
   (* Evaluation *)
   let eval_res = ast |> Evaluator.reduce in
   Ok (eval_res, t, ctx)
@@ -23,6 +43,17 @@ let print ?(debug = false) term type_ =
     printf [ magenta ] "%s" eval_str;
     printf [ blue ] " : ";
     printf [ green ] "%s" (Typing.Type.show type_));
+  Printf.printf "\n%!"
+;;
+
+let print_error error =
+  (match error with
+   | ParseError e ->
+     ANSITerminal.(
+       printf [ red ] "ParseError: %s" @@ Parser.show_parse_error e)
+   | TypeError e ->
+     ANSITerminal.(printf [ red ] "TypeError: %s" @@ Typing.show_type_error e)
+   | ReplError e -> ANSITerminal.(printf [ red ] "Error: %s" e));
   Printf.printf "\n%!"
 ;;
 
@@ -71,9 +102,7 @@ You can exit the REPL with either [exit] or [CTRL+D]
             print (Var ident) type_;
             ctx
           | Error e ->
-            ANSITerminal.(
-              printf [ red ] "TypeError: %s" @@ Typing.show_type_error e);
-            Printf.printf "\n%!";
+            print_error e;
             ctx
         in
         loop ctx)
@@ -82,10 +111,7 @@ You can exit the REPL with either [exit] or [CTRL+D]
         let res = evaluate ctx cmd in
         (match res with
          | Ok (term, type_, _) -> print ~debug term type_
-         | Error e ->
-           ANSITerminal.(
-             printf [ red ] "TypeError: %s" @@ Typing.show_type_error e);
-           Printf.printf "\n%!");
+         | Error e -> print_error e);
         loop ctx)
   in
   loop Context.empty

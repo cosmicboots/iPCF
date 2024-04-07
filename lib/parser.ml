@@ -1,4 +1,4 @@
-exception Parser_error of unit
+type parse_error = Parser_error of unit [@@deriving show]
 
 type mybool =
   | True
@@ -102,12 +102,6 @@ let parse (input : Lexer.t list) =
   (* [sr i s] shift-reduce parses the input tokens [i] onto the output stack
      [s] *)
   let rec sr i s =
-    (*
-       Printf.printf
-       "i: %s\nstack: %s\n\n"
-       ([%derive.show: Lexer.t list] i)
-       ([%derive.show: string wrapped_token list] s);
-    *)
     match i, s with
     (* === Reduction rules === *)
     (* Parentheses *)
@@ -169,17 +163,18 @@ let parse (input : Lexer.t list) =
         :: r ) -> sr i (PE (Let (m, capture u n)) :: r)
     (* Move token to the stack *)
     | t :: i, r -> sr i (Tok t :: r)
-    | [], r :: [] -> r
-    | _ -> raise (Parser_error ())
+    | [], r :: [] -> Ok r
+    | _ -> Error (Parser_error ())
   in
   match sr input [] with
-  | PE x -> x
-  | _ -> raise (Parser_error ())
+  | Ok (PE x) -> Ok x
+  | _ -> Error (Parser_error ())
 ;;
 
 let%test "fix binding" =
   List.fold_left
-    (fun acc (tst, sol) -> acc && parse @@ Lexer.lex tst = sol)
+    (fun acc (tst, sol) ->
+      acc && Result.get_ok @@ parse @@ Lexer.lex tst = sol)
     true
     [ "fix x in x", Fix (Var None)
     ; "box x", Box (Var "x")
@@ -191,12 +186,12 @@ let%test "fix binding" =
 let%test {|parser:  \ x . \ y . x y))|} =
   let prog = {|\ x . \ y . x y|} in
   let tokens = Lexer.lex prog in
-  parse tokens = Abs (Abs (App (Var (Some None), Var None)))
+  Result.get_ok @@ parse tokens = Abs (Abs (App (Var (Some None), Var None)))
 ;;
 
 let%test {|parser: If conditionals + succ|} =
   let prog = {|if x? then succ z else succ 0|} in
   let tokens = Lexer.lex prog in
-  parse tokens
+  Result.get_ok @@ parse tokens
   = IfThenElse (IsZero (Var "x"), Succ (Var "z"), Const (Nat (Succ Zero)))
 ;;

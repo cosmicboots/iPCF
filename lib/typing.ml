@@ -269,7 +269,8 @@ let%test "check tests" =
       (* Reset global state *)
       next_var_id := 0;
       let t, c =
-        Result.get_ok @@ check init_context (Parser.parse @@ Lexer.lex tst)
+        Result.get_ok
+        @@ check init_context (Result.get_ok @@ Parser.parse @@ Lexer.lex tst)
       in
       let s = unify c in
       let pt = SubstMap.apply t @@ Result.get_ok s in
