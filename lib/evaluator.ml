@@ -26,9 +26,9 @@ let root_reduction =
     | App (Abs s, t) -> subst s t (* Beta reduction *)
     | IfThenElse (Const (Bool True), t, _) -> t
     | IfThenElse (Const (Bool False), _, f) -> f
-    | Let (m, n) -> subst n m
+    | Let (Box m, n) -> subst n m
     | Fix m -> subst m (Box (Fix m))
-    (* TODO: Add natural number rules *)
+    | Succ (Const (Nat n)) -> Const (Nat (Succ n))
     | t -> t)
 ;;
 
@@ -43,7 +43,7 @@ let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
   | Const _ as c -> c
   | Abs s -> Abs (redstep s)
   | Box m -> Box (redstep m)
-  | Let (m, n) -> Let (redstep m, n)
+  | Let (m, n) -> Let (redstep m, redstep n)
   | Fix m -> Fix (redstep m)
   | Succ x -> Succ (redstep x)
 ;;

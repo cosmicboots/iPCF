@@ -40,7 +40,7 @@ module Type = struct
       | `Arrow ((`Arrow _ as t1), t2) ->
         Printf.sprintf "(%s) -> %s" (show' t1) (show' t2)
       | `Arrow (t1, t2) -> Printf.sprintf "%s -> %s" (show' t1) (show' t2)
-      | `Box t -> Printf.sprintf "(Box %s)" (show' t)
+      | `Box t -> Printf.sprintf "Box (%s)" (show' t)
       | `Var s -> Printf.sprintf "'%s" @@ type_of_int s
     in
     show' t

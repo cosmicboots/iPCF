@@ -39,7 +39,7 @@ You can exit the REPL with either [exit] or [CTRL+D]
   let rec loop ctx =
     let cmd =
       try Ocamline.read ~prompt:"iPCF>" ~brackets:[ '(', ')' ] () with
-      | End_of_file -> "quit"
+      | End_of_file -> ":quit"
       | Stdlib.Sys.Break -> ""
     in
     match cmd with
@@ -48,12 +48,18 @@ You can exit the REPL with either [exit] or [CTRL+D]
     | ":ctx" ->
       Context.bindings ctx
       |> List.iter (fun (k, v) ->
-        Printf.printf "%s := %s\n%!" k (Parser.show_terms v));
+        let t = Result.get_ok @@ Typing.infer_type Typing.init_context v in
+        ANSITerminal.(
+          printf [ magenta ] "%s" k;
+          printf [ blue ] " : ";
+          printf [ green ] "%s" (Typing.Type.show t));
+        Printf.printf "\n%!");
       loop ctx
     | _ ->
       let matches = Re.all assign_re cmd in
       if List.length matches = 1
       then (
+        (* Assignment *)
         let m = List.hd matches in
         let ident = Re.Group.get m 1 in
         let term = Re.Group.get m 2 in
@@ -72,6 +78,7 @@ You can exit the REPL with either [exit] or [CTRL+D]
         in
         loop ctx)
       else (
+        (* Evaluation *)
         let res = evaluate ctx cmd in
         (match res with
          | Ok (term, type_, _) -> print ~debug term type_
