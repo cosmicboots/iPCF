@@ -5,8 +5,8 @@
 let subst s t =
   Parser.bind_terms
     (function
-     | Some x -> Var x
-     | None -> t)
+      | Some x -> Var x
+      | None -> t)
     s
 ;;
 
