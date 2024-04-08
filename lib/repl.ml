@@ -28,6 +28,10 @@ module Context = Map.Make (String) [@@deriving show]
 
 exception Unbound_variable of string
 
+(** Regular expression for assignment *)
+let assign_re = Re.Perl.compile_pat {|^(\w+)\s*:=\s*(.*)$|}
+
+(** [evaluate ctx term] evaluates [term] assuming the context [ctx] *)
 let evaluate ctx term =
   (* Lexing *)
   let& tokens = Lexer.lex term in
@@ -77,8 +81,36 @@ let print_error error =
   Printf.printf "\n%!"
 ;;
 
+let handle_line ?(debug = false) ctx line =
+  let matches = Re.all assign_re line in
+  if List.length matches = 1
+  then (
+    (* Assignment *)
+    let m = List.hd matches in
+    let ident = Re.Group.get m 1 in
+    let term = Re.Group.get m 2 in
+    let res = evaluate ctx term in
+    let ctx =
+      match res with
+      | Ok (term, type_, ctx) ->
+        let ctx = Context.add ident term ctx in
+        print (Var ident) type_;
+        ctx
+      | Error e ->
+        print_error e;
+        ctx
+    in
+    ctx)
+  else (
+    (* Evaluation *)
+    let res = evaluate ctx line in
+    (match res with
+     | Ok (term, type_, _) -> print ~debug term type_
+     | Error e -> print_error e);
+    ctx)
+;;
+
 let run debug =
-  let assign_re = Re.Perl.compile_pat {|^(\w+)\s*:=\s*(.*)$|} in
   print_endline
     {|
 =========================
@@ -88,12 +120,13 @@ Welcome to the iPCF REPL!
 You can exit the REPL with either [exit] or [CTRL+D]
 |};
   let rec loop ctx =
-    let cmd =
+    let line =
       try Ocamline.read ~prompt:"iPCF>" ~brackets:[ '(', ')' ] () with
       | End_of_file -> ":quit"
       | Stdlib.Sys.Break -> ""
     in
-    match cmd with
+    let args = String.trim line |> String.split_on_char ' ' in
+    match List.hd args with
     | "" -> loop ctx
     | ":quit" -> ()
     | ":ctx" ->
@@ -106,33 +139,32 @@ You can exit the REPL with either [exit] or [CTRL+D]
           printf [ green ] "%s" (Typing.Type.show t));
         Printf.printf "\n%!");
       loop ctx
-    | _ ->
-      let matches = Re.all assign_re cmd in
-      if List.length matches = 1
-      then (
-        (* Assignment *)
-        let m = List.hd matches in
-        let ident = Re.Group.get m 1 in
-        let term = Re.Group.get m 2 in
-        let res = evaluate ctx term in
-        let ctx =
-          match res with
-          | Ok (term, type_, ctx) ->
-            let ctx = Context.add ident term ctx in
-            print (Var ident) type_;
-            ctx
-          | Error e ->
-            print_error e;
-            ctx
-        in
-        loop ctx)
-      else (
-        (* Evaluation *)
-        let res = evaluate ctx cmd in
-        (match res with
-         | Ok (term, type_, _) -> print ~debug term type_
-         | Error e -> print_error e);
-        loop ctx)
+    | ":load" | ":l" ->
+      (match List.nth_opt args 1 with
+       | Some filename ->
+         (try
+            let ic = open_in filename in
+            let rec f ic ctx =
+              try
+                let line = input_line ic in
+                f ic @@ handle_line ctx line
+              with
+              | End_of_file ->
+                close_in_noerr ic;
+                ctx
+              | e ->
+                close_in_noerr ic;
+                raise e
+            in
+            loop @@ f ic ctx
+          with
+          | Sys_error e ->
+            print_error @@ ReplError e;
+            loop ctx)
+       | None ->
+         print_error @@ ReplError ":load requires a filepath";
+         loop ctx)
+    | _ -> handle_line ~debug ctx line |> loop
   in
   loop Context.empty
 ;;

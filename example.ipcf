@@ -1,0 +1,3 @@
+id := \x . x
+quote := \x . let box y <- x in box (box y)
+cobind := \f . \x . let box y <- (let box z <- x in box (box z)) in box (f y)
