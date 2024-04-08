@@ -145,6 +145,7 @@ let parse (input : Lexer.t list) =
     | Lexer.False :: i, r -> sr i (PE (Const (Bool False)) :: r)
     | Lexer.Zero :: i, r -> sr i (PE (Const (Nat Zero)) :: r)
     | Lexer.Ident x :: i, r -> sr i (PE (Var x) :: r)
+    | Lexer.Lparen :: i, r -> sr i (Tok Lparen :: r)
     (* === Lower precedence === *)
     (* Abstraction *)
     | i, PE body :: Tok Lexer.Dot :: PE (Var x) :: Tok Lexer.Backslash :: r ->
@@ -162,7 +163,7 @@ let parse (input : Lexer.t list) =
         :: PE (Box (Var u))
         :: Tok Lexer.Let
         :: r ) -> sr i (PE (Let (m, capture u n)) :: r)
-    (* Move token to the stack *)
+    (* Move arbitrary token to the stack *)
     | t :: i, r -> sr i (Tok t :: r)
     | [], r :: [] -> Ok r
     | _ -> Error (Parser_error ())
@@ -170,6 +171,54 @@ let parse (input : Lexer.t list) =
   match sr input [] with
   | Ok (PE x) -> Ok x
   | _ -> Error (Parser_error ())
+;;
+
+let%test_module _ =
+  (module struct
+    let run_test tst sol =
+      let tokens = Result.get_ok @@ Lexer.lex tst in
+      let ast = Result.get_ok @@ parse tokens in
+      if ast <> sol
+      then
+        Printf.printf
+          {|Testing [%s]
+Expected: %s
+Got:      %s
+
+|}
+          tst
+          ([%show: string terms] sol)
+          ([%show: string terms] ast);
+      ast = sol
+    ;;
+
+    let%test {|parser:  \ x . \ y . x y))|} =
+      run_test
+        {|\ x . \ y . x y|}
+        (Abs (Abs (App (Var (Some None), Var None))))
+    ;;
+
+    let%test {|\f . \x . f ( x )|} =
+      run_test
+        {| \f . \x . f ( x )|}
+        (Abs (Abs (App (Var (Some None), Var None))))
+    ;;
+
+    let%test {|parser: If conditionals + succ|} =
+      run_test
+        {|if x? then succ z else succ 0|}
+        (IfThenElse (IsZero (Var "x"), Succ (Var "z"), Const (Nat (Succ Zero))))
+    ;;
+
+    let%test {| (\x . if x then 0 else succ 0) true |} =
+      run_test
+        {| (\x . if x then 0 else succ 0) true |}
+        (App
+           ( Abs
+               (IfThenElse (Var None, Const (Nat Zero), Const (Nat (Succ Zero))))
+           , Const (Bool True) ))
+    ;;
+  end)
 ;;
 
 let%test "fix binding" =
@@ -182,17 +231,4 @@ let%test "fix binding" =
     ; "fix x in x", Fix (Var None)
     ; "let box x <- n in x", Let (Var "n", Var None)
     ]
-;;
-
-let%test {|parser:  \ x . \ y . x y))|} =
-  let prog = {|\ x . \ y . x y|} in
-  let tokens = Result.get_ok @@ Lexer.lex prog in
-  Result.get_ok @@ parse tokens = Abs (Abs (App (Var (Some None), Var None)))
-;;
-
-let%test {|parser: If conditionals + succ|} =
-  let prog = {|if x? then succ z else succ 0|} in
-  let tokens = Result.get_ok @@ Lexer.lex prog in
-  Result.get_ok @@ parse tokens
-  = IfThenElse (IsZero (Var "x"), Succ (Var "z"), Const (Nat (Succ Zero)))
 ;;

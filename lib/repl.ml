@@ -38,17 +38,13 @@ let evaluate ctx term =
   (* Parsing *)
   let$ ast = Parser.parse tokens in
   let* ast =
-    try
-      Ok
-        (Parser.bind_terms
-           (fun x ->
-             match Context.find_opt x ctx with
-             | Some x -> x
-             | None -> raise (Unbound_variable x))
-           ast)
-    with
-    | Unbound_variable x ->
-      Error (ReplError (Printf.sprintf "[%s] not found in REPL context" x))
+    Ok
+      (Parser.bind_terms
+         (fun x ->
+           match Context.find_opt x ctx with
+           | Some x -> x
+           | None -> Var x)
+         ast)
   in
   (* Type inference *)
   let+ t = ast |> Typing.infer_type Typing.init_context in
