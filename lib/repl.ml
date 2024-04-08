@@ -26,14 +26,24 @@ let ( let& ) r code =
 
 module Context = Map.Make (String) [@@deriving show]
 
+exception Unbound_variable of string
+
 let evaluate ctx term =
   (* Lexing *)
   let& tokens = Lexer.lex term in
   (* Parsing *)
   let$ ast = Parser.parse tokens in
   let* ast =
-    try Ok (Parser.bind_terms (fun x -> Context.find x ctx) ast) with
-    | Not_found -> Error (ReplError "Variable not found in REPL context")
+    try
+      Ok
+        (Parser.bind_terms
+           (fun x ->
+             try Context.find x ctx with
+             | Not_found -> raise (Unbound_variable x))
+           ast)
+    with
+    | Unbound_variable x ->
+      Error (ReplError (Printf.sprintf "[%s] not found in REPL context" x))
   in
   (* Type inference *)
   let+ t = ast |> Typing.infer_type Typing.init_context in
