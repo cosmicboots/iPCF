@@ -42,8 +42,9 @@ let evaluate ctx term =
       Ok
         (Parser.bind_terms
            (fun x ->
-             try Context.find x ctx with
-             | Not_found -> raise (Unbound_variable x))
+             match Context.find_opt x ctx with
+             | Some x -> x
+             | None -> raise (Unbound_variable x))
            ast)
     with
     | Unbound_variable x ->
