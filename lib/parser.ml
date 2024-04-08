@@ -1,4 +1,5 @@
-type parse_error = Parser_error of unit [@@deriving show]
+type parse_error = Parser_error of unit
+[@@deriving show { with_path = false }]
 
 type mybool =
   | True
@@ -174,7 +175,7 @@ let parse (input : Lexer.t list) =
 let%test "fix binding" =
   List.fold_left
     (fun acc (tst, sol) ->
-      acc && Result.get_ok @@ parse @@ Lexer.lex tst = sol)
+      acc && Result.get_ok @@ parse @@ Result.get_ok @@ Lexer.lex tst = sol)
     true
     [ "fix x in x", Fix (Var None)
     ; "box x", Box (Var "x")
@@ -185,13 +186,13 @@ let%test "fix binding" =
 
 let%test {|parser:  \ x . \ y . x y))|} =
   let prog = {|\ x . \ y . x y|} in
-  let tokens = Lexer.lex prog in
+  let tokens = Result.get_ok @@ Lexer.lex prog in
   Result.get_ok @@ parse tokens = Abs (Abs (App (Var (Some None), Var None)))
 ;;
 
 let%test {|parser: If conditionals + succ|} =
   let prog = {|if x? then succ z else succ 0|} in
-  let tokens = Lexer.lex prog in
+  let tokens = Result.get_ok @@ Lexer.lex prog in
   Result.get_ok @@ parse tokens
   = IfThenElse (IsZero (Var "x"), Succ (Var "z"), Const (Nat (Succ Zero)))
 ;;

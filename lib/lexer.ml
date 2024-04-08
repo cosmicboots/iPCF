@@ -1,8 +1,5 @@
-(*
-   lambdas -> \ x -> M
-*)
-
-exception Lexing_error of string
+type lexing_error = Unexpected_character of char
+[@@deriving show { with_path = false }]
 
 (** Tokens *)
 type t =
@@ -57,7 +54,7 @@ let is_alphanum c = is_alpha c || is_digit c
 (** Lexer *)
 let lex s =
   let rec f tokens = function
-    | [] -> List.rev tokens
+    | [] -> Ok (List.rev tokens)
     (* Bools *)
     | 't' :: 'r' :: 'u' :: 'e' :: s -> f (True :: tokens) s
     | 'f' :: 'a' :: 'l' :: 's' :: 'e' :: s -> f (False :: tokens) s
@@ -105,14 +102,15 @@ let lex s =
       in
       let num, s = g [ c ] s in
       f (num :: tokens) s
-    | c :: _ -> raise (Lexing_error ("unexpected character" ^ String.make 1 c))
+    | c :: _ -> Error (Unexpected_character c)
   in
   f [] @@ chars_of_string s
 ;;
 
 let%test "lexer" =
-  lex
-    {|
+  Result.get_ok
+  @@ lex
+       {|
     (\ x . z)
     longIdent1 .
     true false

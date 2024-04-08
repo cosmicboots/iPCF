@@ -11,7 +11,12 @@ let subst s t =
 ;;
 
 let%test "subst" =
-  let s = Result.get_ok @@ Parser.parse @@ Lexer.lex {|(\ x. x x) y|} in
+  let s =
+    Result.get_ok
+    @@ Parser.parse
+    @@ Result.get_ok
+    @@ Lexer.lex {|(\ x. x x) y|}
+  in
   match s with
   | App (Abs s, t) ->
     let result = subst s t in
@@ -55,7 +60,10 @@ let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
 
 let%test "single reduction step" =
   let t =
-    Result.get_ok @@ Parser.parse @@ Lexer.lex {|(\ x . (\ y . x y)) z z|}
+    Result.get_ok
+    @@ Parser.parse
+    @@ Result.get_ok
+    @@ Lexer.lex {|(\ x . (\ y . x y)) z z|}
   in
   let result = redstep t in
   result = App (Abs (App (Var (Some "z"), Var None)), Var "z")
@@ -75,7 +83,10 @@ let reduce t =
 
 let%test "full reduction" =
   let t =
-    Result.get_ok @@ Parser.parse @@ Lexer.lex {|(\ x . (\ y . x y)) z z|}
+    Result.get_ok
+    @@ Parser.parse
+    @@ Result.get_ok
+    @@ Lexer.lex {|(\ x . (\ y . x y)) z z|}
   in
   let result = reduce t in
   result = App (Var "z", Var "z")

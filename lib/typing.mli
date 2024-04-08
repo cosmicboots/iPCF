@@ -1,6 +1,4 @@
-type type_error =
-  | NotInContext
-  | UnificationError of string
+type type_error
 
 val pp_type_error : Format.formatter -> type_error -> unit
 val show_type_error : type_error -> string

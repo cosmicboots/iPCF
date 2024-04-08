@@ -1,8 +1,8 @@
 let ( let* ) = Result.bind
 
 type type_error =
-  | NotInContext
-  | UnificationError of string
+  | Not_in_context
+  | Unification_error of string
 [@@deriving show { with_path = false }]
 
 module Type = struct
@@ -76,7 +76,7 @@ end
 (** A context is a mapping from variables to types *)
 type 'a context = 'a -> (Type.t, type_error) result
 
-let init_context _ = Error NotInContext
+let init_context _ = Error Not_in_context
 let next_var_id = ref 0
 
 (** [get_var_id ()] returns a fresh variable identifier and increments the
@@ -255,7 +255,7 @@ let unify ctx =
           ctx |> unify' s
         | t1, t2 ->
           Error
-            (UnificationError
+            (Unification_error
                (Printf.sprintf "%s = %s" (Type.show t1) (Type.show t2))))
   in
   unify' SubstMap.empty ctx
@@ -270,7 +270,9 @@ let%test "check tests" =
       next_var_id := 0;
       let t, c =
         Result.get_ok
-        @@ check init_context (Result.get_ok @@ Parser.parse @@ Lexer.lex tst)
+        @@ check
+             init_context
+             (Result.get_ok @@ Parser.parse @@ Result.get_ok @@ Lexer.lex tst)
       in
       let s = unify c in
       let pt = SubstMap.apply t @@ Result.get_ok s in

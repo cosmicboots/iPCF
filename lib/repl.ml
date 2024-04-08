@@ -3,6 +3,7 @@ let ( let* ) = Result.bind
 type error =
   | ParseError of Parser.parse_error
   | TypeError of Typing.type_error
+  | LexingError of Lexer.lexing_error
   | ReplError of string
 
 let ( let$ ) r code =
@@ -17,11 +18,17 @@ let ( let+ ) r code =
   | Error x -> Error (TypeError x)
 ;;
 
+let ( let& ) r code =
+  match r with
+  | Ok x -> code x
+  | Error x -> Error (LexingError x)
+;;
+
 module Context = Map.Make (String) [@@deriving show]
 
 let evaluate ctx term =
   (* Lexing *)
-  let tokens = Lexer.lex term in
+  let& tokens = Lexer.lex term in
   (* Parsing *)
   let$ ast = Parser.parse tokens in
   let* ast =
@@ -53,7 +60,10 @@ let print_error error =
        printf [ red ] "ParseError: %s" @@ Parser.show_parse_error e)
    | TypeError e ->
      ANSITerminal.(printf [ red ] "TypeError: %s" @@ Typing.show_type_error e)
-   | ReplError e -> ANSITerminal.(printf [ red ] "Error: %s" e));
+   | ReplError e -> ANSITerminal.(printf [ red ] "Error: %s" e)
+   | LexingError e ->
+     ANSITerminal.(
+       printf [ red ] "LexingError: %s" @@ Lexer.show_lexing_error e));
   Printf.printf "\n%!"
 ;;
 
