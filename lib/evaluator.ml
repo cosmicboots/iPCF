@@ -53,6 +53,53 @@ let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
   | IsZero x -> IsZero (redstep x)
 ;;
 
+(* Quoted terms *)
+type 'a values =
+  | NVal of int
+  | BVal of bool
+  | FVal of ('a -> 'a Parser.terms)
+  | QVal of 'a Parser.terms
+  | Error
+
+let lift_nat : 'a. (int -> 'a values) -> 'a values -> 'a values =
+  fun f -> function
+  | NVal x -> f x
+  | _ -> Error
+;;
+
+let rec eval : 'a. ('a -> 'a values) -> 'a Parser.terms -> 'a values =
+  fun env t ->
+  match t with
+  | Var x -> env x
+  | Const (Nat x) -> NVal (Parser.nat_to_int x)
+  | Const (Bool b) ->
+    BVal
+      (match b with
+       | True -> true
+       | False -> false)
+  | Succ x -> lift_nat (fun x -> NVal (x + 1)) (eval env x)
+  | Pred x -> lift_nat (fun x -> NVal (x - 1)) (eval env x)
+  | App (t1, t2) -> ()
+  | Abs t ->
+    FVal
+      (fun x ->
+        Parser.bind_terms
+          (function
+            | None -> Var x
+            | Some y -> Var y)
+          t)
+  | IfThenElse (c, t, f) ->
+    (match eval env c with
+     | BVal true -> eval env t
+     | BVal false -> eval env f
+     | _ -> Error)
+  | IsZero x -> lift_nat (fun x -> BVal (x = 0)) (eval env x)
+  (* Quoted terms *)
+  | Box x -> QVal x
+  | Let (x, y) -> ()
+  | Fix _ -> Error
+;;
+
 let%test "single reduction step" =
   let t =
     Parser.(

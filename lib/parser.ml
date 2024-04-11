@@ -11,6 +11,10 @@ type nat =
   | Succ of nat
 [@@deriving show { with_path = false }, eq, ord]
 
+let rec nat_to_int = function
+  | Zero -> 0
+  | Succ x -> 1 + nat_to_int x
+
 type ground_terms =
   | Bool of mybool
   | Nat of nat
