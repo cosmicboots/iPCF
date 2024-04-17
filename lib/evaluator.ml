@@ -26,7 +26,7 @@ let root_reduction =
     | App (Abs s, t) -> subst s t (* Beta reduction *)
     | IfThenElse (Const (Bool True), t, _) -> t
     | IfThenElse (Const (Bool False), _, f) -> f
-    | Let (Box m, n) -> subst n m
+    | Unbox (Box m, n) -> subst n m
     | Fix m -> subst m (Box (Fix m))
     | Succ (Const (Nat n)) -> Const (Nat (Succ n))
     | Pred (Const (Nat (Succ n))) -> Const (Nat n)
@@ -46,7 +46,7 @@ let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
   | Const _ as c -> c
   | Abs s -> Abs (redstep s)
   | Box m -> Box (redstep m)
-  | Let (m, n) -> Let (redstep m, redstep n)
+  | Unbox (m, n) -> Unbox (redstep m, redstep n)
   | Fix m -> Fix (redstep m)
   | Succ x -> Succ (redstep x)
   | Pred x -> Pred (redstep x)
@@ -79,7 +79,11 @@ let rec eval : 'a. ('a -> 'a values) -> 'a Parser.terms -> 'a values =
        | False -> false)
   | Succ x -> lift_nat (fun x -> NVal (x + 1)) (eval env x)
   | Pred x -> lift_nat (fun x -> NVal (x - 1)) (eval env x)
-  | App (t1, t2) -> ()
+  | App (_t1, _t2) -> Error
+  (* Maybe this is the right rule for app...?
+     Need to double check that subst doesn't do anything weird in relation to
+     quoted values. *)
+  | App (Abs t1, t2) -> eval env (subst t1 t2)
   | Abs t ->
     FVal
       (fun x ->
@@ -96,7 +100,7 @@ let rec eval : 'a. ('a -> 'a values) -> 'a Parser.terms -> 'a values =
   | IsZero x -> lift_nat (fun x -> BVal (x = 0)) (eval env x)
   (* Quoted terms *)
   | Box x -> QVal x
-  | Let (x, y) -> ()
+  | Unbox (x, y) -> ()
   | Fix _ -> Error
 ;;
 

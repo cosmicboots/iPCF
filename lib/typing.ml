@@ -149,7 +149,7 @@ let rec check
   | Box e ->
     let* t, c = check ctx e in
     Ok (`Box t, c)
-  | Let (m, n) ->
+  | Unbox (m, n) ->
     (* Generate a new type variable for the result of the let box expression *)
     let t = `Var (get_var_id ()) in
     (* Unwrap the let box binding variable context *)

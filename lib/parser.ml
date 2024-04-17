@@ -14,6 +14,7 @@ type nat =
 let rec nat_to_int = function
   | Zero -> 0
   | Succ x -> 1 + nat_to_int x
+;;
 
 type ground_terms =
   | Bool of mybool
@@ -32,7 +33,7 @@ type 'a terms =
   | IsZero of 'a terms
   (* Boxed terms *)
   | Box of 'a terms
-  | Let of 'a terms * 'a option terms
+  | Unbox of 'a terms * 'a option terms
   | Fix of 'a option terms
 [@@deriving show { with_path = false }, eq, ord]
 
@@ -61,7 +62,7 @@ let show_terms a =
     | Pred x -> Printf.sprintf "pred %s" (pp_terms' x)
     | IsZero x -> Printf.sprintf "%s?" (pp_terms' x)
     | Box x -> Printf.sprintf "box %s" (pp_terms' x)
-    | Let _ -> "(let)"
+    | Unbox _ -> "(let)"
     | Fix _ -> "(fix)"
   in
   pp_terms' a
@@ -88,7 +89,7 @@ let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
   (* Boxed terms *)
   | Box m -> Box (bind_terms f m)
   | Fix m -> Fix (bind_terms f' m)
-  | Let (m, n) -> Let (bind_terms f m, bind_terms f' n)
+  | Unbox (m, n) -> Unbox (bind_terms f m, bind_terms f' n)
 ;;
 
 (** [capture ident term] captures all free occurences of [ident] in [term]. *)
@@ -166,7 +167,7 @@ let parse (input : Lexer.t list) =
         :: Tok Lexer.Lt
         :: PE (Box (Var u))
         :: Tok Lexer.Let
-        :: r ) -> sr i (PE (Let (m, capture u n)) :: r)
+        :: r ) -> sr i (PE (Unbox (m, capture u n)) :: r)
     (* Move arbitrary token to the stack *)
     | t :: i, r -> sr i (Tok t :: r)
     | [], r :: [] -> Ok r
@@ -233,6 +234,6 @@ let%test "fix binding" =
     [ "fix x in x", Fix (Var None)
     ; "box x", Box (Var "x")
     ; "fix x in x", Fix (Var None)
-    ; "let box x <- n in x", Let (Var "n", Var None)
+    ; "let box x <- n in x", Unbox (Var "n", Var None)
     ]
 ;;
