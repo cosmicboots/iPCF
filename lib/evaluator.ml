@@ -79,11 +79,11 @@ let rec eval : 'a. ('a -> 'a values) -> 'a Parser.terms -> 'a values =
        | False -> false)
   | Succ x -> lift_nat (fun x -> NVal (x + 1)) (eval env x)
   | Pred x -> lift_nat (fun x -> NVal (x - 1)) (eval env x)
-  | App (_t1, _t2) -> Error
   (* Maybe this is the right rule for app...?
      Need to double check that subst doesn't do anything weird in relation to
      quoted values. *)
   | App (Abs t1, t2) -> eval env (subst t1 t2)
+  | App (_t1, _t2) -> Error
   | Abs t ->
     FVal
       (fun x ->
@@ -100,8 +100,12 @@ let rec eval : 'a. ('a -> 'a values) -> 'a Parser.terms -> 'a values =
   | IsZero x -> lift_nat (fun x -> BVal (x = 0)) (eval env x)
   (* Quoted terms *)
   | Box x -> QVal x
-  | Unbox (x, y) -> ()
-  | Fix _ -> Error
+  (* Unboxes the term m into the term n *)
+  | Unbox (Box m, _n) -> 
+    let m' = eval env m in
+    ()
+  | Unbox _ -> Error
+  | Fix _ -> ()
 ;;
 
 let%test "single reduction step" =
