@@ -101,10 +101,10 @@ let rec eval : 'a. ('a -> 'a values) -> 'a Parser.terms -> 'a values =
   (* Quoted terms *)
   | Box x -> QVal x
   (* Unboxes the term m into the term n *)
-  | Unbox (Box m, _n) -> 
+  | Unbox (Box m, _n) ->
     let m' = eval env m in
     ()
-  | Unbox _ -> Error
+  | Unbox _ -> Error (* Can't unbox a non-boxed term *)
   | Fix _ -> ()
 ;;
 
