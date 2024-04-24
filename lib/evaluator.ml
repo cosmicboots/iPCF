@@ -54,12 +54,12 @@ let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
 ;;
 
 type eval_error =
-  | EvalError
-  | NotImplemented
+  | Eval_error of string
+  | Not_implemented
 
 let lift_nat f = function
   | Parser.Const (Nat x) -> Ok (f x)
-  | _ -> Error EvalError
+  | _ -> Error (Eval_error "Failed to lift nat")
 ;;
 
 let rec eval
@@ -82,15 +82,18 @@ let rec eval
      Need to double check that subst doesn't do anything weird in relation to
      quoted values. *)
   | App (Abs t1, t2) -> eval env (subst t1 t2)
-  | App (_t1, _t2) -> Error EvalError
-  | Abs _ as x -> Ok x
+  | App (_t1, _t2) -> Error (Eval_error "Can't apply a non-abstraction")
+  | Abs _ as x ->
+    Ok x (* Not sure that evaluation should occur inside an abstraction *)
   | IfThenElse (c, t, f) ->
     let ( let* ) = Result.bind in
     let* res = eval env c in
     (match res with
      | Const (Bool true) -> eval env t
      | Const (Bool false) -> eval env f
-     | _ -> Error EvalError)
+     | _ ->
+       Error
+         (Eval_error "Failed to evaluate if-then-else. Conditional not a bool."))
   | IsZero x ->
     Result.bind (eval env x) (fun r ->
       lift_nat (fun x -> Parser.Const (Bool (x = 0))) r)
@@ -101,8 +104,8 @@ let rec eval
     let ( let* ) = Result.bind in
     let* m' = eval env m in
     Ok (subst _n m')
-  | Unbox _ -> Error EvalError (* Can't unbox a non-boxed term *)
-  | Fix _ -> Error NotImplemented
+  | Unbox _ -> Error (Eval_error "Can't unbox a non-boxed term")
+  | Fix _ -> Error Not_implemented
 ;;
 
 let%test "single reduction step" =
