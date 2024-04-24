@@ -24,14 +24,14 @@ let root_reduction =
   Parser.(
     function
     | App (Abs s, t) -> subst s t (* Beta reduction *)
-    | IfThenElse (Const (Bool True), t, _) -> t
-    | IfThenElse (Const (Bool False), _, f) -> f
+    | IfThenElse (Const (Bool true), t, _) -> t
+    | IfThenElse (Const (Bool false), _, f) -> f
     | Unbox (Box m, n) -> subst n m
     | Fix m -> subst m (Box (Fix m))
-    | Succ (Const (Nat n)) -> Const (Nat (Succ n))
-    | Pred (Const (Nat (Succ n))) -> Const (Nat n)
-    | IsZero (Const (Nat Zero)) -> Const (Bool True)
-    | IsZero (Const (Nat _)) -> Const (Bool False)
+    | Succ (Const (Nat n)) -> Const (Nat (n + 1))
+    | Pred (Const (Nat n)) -> Const (Nat (n - 1))
+    | IsZero (Const (Nat 0)) -> Const (Bool true)
+    | IsZero (Const (Nat _)) -> Const (Bool false)
     | t -> t)
 ;;
 
@@ -53,59 +53,56 @@ let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
   | IsZero x -> IsZero (redstep x)
 ;;
 
-(* Quoted terms *)
-type 'a values =
-  | NVal of int
-  | BVal of bool
-  | FVal of ('a -> 'a Parser.terms)
-  | QVal of 'a Parser.terms
-  | Error
+type eval_error =
+  | EvalError
+  | NotImplemented
 
-let lift_nat : 'a. (int -> 'a values) -> 'a values -> 'a values =
-  fun f -> function
-  | NVal x -> f x
-  | _ -> Error
+let lift_nat f = function
+  | Parser.Const (Nat x) -> Ok (f x)
+  | _ -> Error EvalError
 ;;
 
-let rec eval : 'a. ('a -> 'a values) -> 'a Parser.terms -> 'a values =
+let rec eval
+  : 'a.
+  ('a -> 'a Parser.terms)
+  -> 'a Parser.terms
+  -> ('a Parser.terms, eval_error) result
+  =
   fun env t ->
   match t with
-  | Var x -> env x
-  | Const (Nat x) -> NVal (Parser.nat_to_int x)
-  | Const (Bool b) ->
-    BVal
-      (match b with
-       | True -> true
-       | False -> false)
-  | Succ x -> lift_nat (fun x -> NVal (x + 1)) (eval env x)
-  | Pred x -> lift_nat (fun x -> NVal (x - 1)) (eval env x)
+  | Parser.Var x -> Ok (env x)
+  | Const _ as x -> Ok x
+  | Succ x ->
+    Result.bind (eval env x) (fun r ->
+      lift_nat (fun x -> Parser.Const (Nat (x + 1))) r)
+  | Pred x ->
+    Result.bind (eval env x) (fun r ->
+      lift_nat (fun x -> Parser.Const (Nat (x - 1))) r)
   (* Maybe this is the right rule for app...?
      Need to double check that subst doesn't do anything weird in relation to
      quoted values. *)
   | App (Abs t1, t2) -> eval env (subst t1 t2)
-  | App (_t1, _t2) -> Error
-  | Abs t ->
-    FVal
-      (fun x ->
-        Parser.bind_terms
-          (function
-            | None -> Var x
-            | Some y -> Var y)
-          t)
+  | App (_t1, _t2) -> Error EvalError
+  | Abs _ as x -> Ok x
   | IfThenElse (c, t, f) ->
-    (match eval env c with
-     | BVal true -> eval env t
-     | BVal false -> eval env f
-     | _ -> Error)
-  | IsZero x -> lift_nat (fun x -> BVal (x = 0)) (eval env x)
+    let ( let* ) = Result.bind in
+    let* res = eval env c in
+    (match res with
+     | Const (Bool true) -> eval env t
+     | Const (Bool false) -> eval env f
+     | _ -> Error EvalError)
+  | IsZero x ->
+    Result.bind (eval env x) (fun r ->
+      lift_nat (fun x -> Parser.Const (Bool (x = 0))) r)
   (* Quoted terms *)
-  | Box x -> QVal x
+  | Box _ as x -> Ok x
   (* Unboxes the term m into the term n *)
   | Unbox (Box m, _n) ->
-    let m' = eval env m in
-    ()
-  | Unbox _ -> Error (* Can't unbox a non-boxed term *)
-  | Fix _ -> ()
+    let ( let* ) = Result.bind in
+    let* m' = eval env m in
+    Ok (subst _n m')
+  | Unbox _ -> Error EvalError (* Can't unbox a non-boxed term *)
+  | Fix _ -> Error NotImplemented
 ;;
 
 let%test "single reduction step" =

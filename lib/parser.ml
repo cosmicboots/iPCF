@@ -1,24 +1,9 @@
 type parse_error = Parser_error of unit
 [@@deriving show { with_path = false }]
 
-type mybool =
-  | True
-  | False
-[@@deriving show { with_path = false }, eq, ord]
-
-type nat =
-  | Zero
-  | Succ of nat
-[@@deriving show { with_path = false }, eq, ord]
-
-let rec nat_to_int = function
-  | Zero -> 0
-  | Succ x -> 1 + nat_to_int x
-;;
-
 type ground_terms =
-  | Bool of mybool
-  | Nat of nat
+  | Bool of bool
+  | Nat of int
 [@@deriving show { with_path = false }, eq, ord]
 
 type 'a terms =
@@ -41,15 +26,9 @@ let show_terms a =
   let rec pp_terms' (a : string terms) =
     match a with
     | Var x -> x
-    | Const (Bool True) -> "true"
-    | Const (Bool False) -> "false"
-    | Const (Nat Zero) -> "0"
-    | Const (Nat x) ->
-      let rec const_of_nat = function
-        | Zero -> 0
-        | Succ x -> 1 + const_of_nat x
-      in
-      string_of_int @@ const_of_nat x
+    | Const (Bool true) -> "true"
+    | Const (Bool false) -> "false"
+    | Const (Nat x) -> string_of_int x
     | App (x, y) -> Printf.sprintf "(%s %s)" (pp_terms' x) (pp_terms' y)
     | Abs _ -> Printf.sprintf "(fun)"
     | IfThenElse (c, t, e) ->
@@ -125,30 +104,25 @@ let parse (input : Lexer.t list) =
         :: r ) -> sr i (PE (IfThenElse (cond, then_body, else_body)) :: r)
     (* Successor of const *)
     | i, PE (Const (Nat x)) :: Tok Lexer.Succ :: r ->
-      sr i (PE (Const (Nat (Succ x))) :: r)
+      sr i (PE (Const (Nat (x + 1))) :: r)
     (* Successor of arbitrary expression *)
     | i, PE x :: Tok Lexer.Succ :: r -> sr i (PE (Succ x) :: r)
     (* Pred of const *)
-    | i, PE (Const (Nat (Succ x))) :: Tok Lexer.Pred :: r ->
-      sr i (PE (Const (Nat x)) :: r)
+    | i, PE (Const (Nat x)) :: Tok Lexer.Pred :: r ->
+      sr i (PE (Const (Nat (x - 1))) :: r)
     (* Pred of arbitrary expression *)
     | i, PE x :: Tok Lexer.Pred :: r -> sr i (PE (Pred x) :: r)
     (* IsZero *)
     | i, Tok Lexer.IsZero :: PE e :: r -> sr i (PE (IsZero e) :: r)
     (* Arbitrary number literals *)
-    | i, Tok (Lexer.Number n) :: r ->
-      let rec expand_lit = function
-        | 0 -> Zero
-        | n -> Succ (expand_lit (n - 1))
-      in
-      sr i (PE (Const (Nat (expand_lit n))) :: r)
+    | i, Tok (Lexer.Number n) :: r -> sr i (PE (Const (Nat n)) :: r)
     (* Box *)
     | i, PE x :: Tok Lexer.Box :: r -> sr i (PE (Box x) :: r)
     (* === Shift rules === *)
     (* Ground types are complete expressions *)
-    | Lexer.True :: i, r -> sr i (PE (Const (Bool True)) :: r)
-    | Lexer.False :: i, r -> sr i (PE (Const (Bool False)) :: r)
-    | Lexer.Zero :: i, r -> sr i (PE (Const (Nat Zero)) :: r)
+    | Lexer.True :: i, r -> sr i (PE (Const (Bool true)) :: r)
+    | Lexer.False :: i, r -> sr i (PE (Const (Bool false)) :: r)
+    | Lexer.Zero :: i, r -> sr i (PE (Const (Nat 0)) :: r)
     | Lexer.Ident x :: i, r -> sr i (PE (Var x) :: r)
     | Lexer.Lparen :: i, r -> sr i (Tok Lparen :: r)
     (* === Lower precedence === *)
@@ -212,16 +186,15 @@ Got:      %s
     let%test {|parser: If conditionals + succ|} =
       run_test
         {|if x? then succ z else succ 0|}
-        (IfThenElse (IsZero (Var "x"), Succ (Var "z"), Const (Nat (Succ Zero))))
+        (IfThenElse (IsZero (Var "x"), Succ (Var "z"), Const (Nat 1)))
     ;;
 
     let%test {| (\x . if x then 0 else succ 0) true |} =
       run_test
         {| (\x . if x then 0 else succ 0) true |}
         (App
-           ( Abs
-               (IfThenElse (Var None, Const (Nat Zero), Const (Nat (Succ Zero))))
-           , Const (Bool True) ))
+           ( Abs (IfThenElse (Var None, Const (Nat 0), Const (Nat 1)))
+           , Const (Bool true) ))
     ;;
   end)
 ;;
