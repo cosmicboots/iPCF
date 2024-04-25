@@ -108,6 +108,17 @@ let rec eval
   | Fix _ -> Error Not_implemented
 ;;
 
+let%test "eval" =
+  let t : string Parser.terms =
+    Parser.(Unbox (Box (Const (Nat 5)), Var None))
+  in
+  let result =
+    Result.get_ok @@ eval (fun _ -> raise (Invalid_argument "")) t
+  in
+  Printf.printf "%s\n" ([%show: string Parser.terms] result);
+  result = Parser.(Const (Nat 5))
+;;
+
 let%test "single reduction step" =
   let t =
     Parser.(
