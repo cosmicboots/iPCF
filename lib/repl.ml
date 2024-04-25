@@ -4,6 +4,7 @@ type error =
   | ParseError of Parser.parse_error
   | TypeError of Typing.type_error
   | LexingError of Lexer.lexing_error
+  | EvalError of Evaluator.eval_error
   | ReplError of string
 
 let ( let$ ) r code =
@@ -22,6 +23,12 @@ let ( let& ) r code =
   match r with
   | Ok x -> code x
   | Error x -> Error (LexingError x)
+;;
+
+let ( let^ ) r code =
+  match r with
+  | Ok x -> code x
+  | Error x -> Error (EvalError x)
 ;;
 
 module Context = Map.Make (String) [@@deriving show]
@@ -49,7 +56,7 @@ let evaluate ctx term =
   (* Type inference *)
   let+ t = ast |> Typing.infer_type Typing.init_context in
   (* Evaluation *)
-  let eval_res = ast |> Evaluator.reduce in
+  let^ eval_res = Evaluator.eval (fun _ -> raise (Invalid_argument "")) ast in
   Ok (eval_res, t, ctx)
 ;;
 
@@ -74,7 +81,10 @@ let print_error error =
    | ReplError e -> ANSITerminal.(printf [ red ] "Error: %s" e)
    | LexingError e ->
      ANSITerminal.(
-       printf [ red ] "LexingError: %s" @@ Lexer.show_lexing_error e));
+       printf [ red ] "LexingError: %s" @@ Lexer.show_lexing_error e)
+   | EvalError e ->
+     ANSITerminal.(
+       printf [ red ] "EvalError: %s" @@ Evaluator.show_eval_error e));
   Printf.printf "\n%!"
 ;;
 
