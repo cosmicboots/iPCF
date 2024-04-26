@@ -72,7 +72,7 @@ let rec eval
     let* m' = eval env m in
     Ok (subst _n m')
   | Unbox _ -> Error (Eval_error "Can't unbox a non-boxed term")
-  | Fix _ -> Error Not_implemented
+  | Fix m -> Ok (subst m (Box (Fix m)))
 ;;
 
 let%test "eval" =
