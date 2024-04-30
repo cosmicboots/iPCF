@@ -29,15 +29,25 @@ let lift_nat f = function
   | _ -> Error (Eval_error "Failed to lift nat")
 ;;
 
+type 'a operation =
+  | Term of 'a Parser.terms
+  | IntOp of ('a Parser.terms -> 'a Parser.terms)
+
 let rec eval
   : 'a.
-  ('a -> 'a Parser.terms)
+  ('a -> 'a operation)
   -> 'a Parser.terms
   -> ('a Parser.terms, eval_error) result
   =
   fun env t ->
+  let ( let* ) = Result.bind in
   match t with
-  | Parser.Var x -> Ok (env x)
+  | Parser.Var x as x' ->
+    (match env x with
+     | Term t -> eval env t
+     | IntOp _ ->
+       (* Ignore intensional operations as those are handled in applications *)
+       Ok x')
   | Const _ as x -> Ok x
   | Succ x ->
     Result.bind (eval env x) (fun r ->
@@ -48,12 +58,21 @@ let rec eval
   (* Maybe this is the right rule for app...?
      Need to double check that subst doesn't do anything weird in relation to
      quoted values. *)
-  | App (Abs t1, t2) -> eval env (subst t1 t2)
-  | App (_t1, _t2) -> Error (Eval_error "Can't apply a non-abstraction")
+  | App (t1, t2) ->
+    (* Reduce the first term *)
+    let* t1' = eval env t1 in
+    (match t1' with
+     (* We can directly apply the abstracion substitution *)
+     | Abs t -> eval env (subst t t2)
+     (* Otherwise, we have to check if it's an intensional operation *)
+     | Var x ->
+       (match env x with
+        | IntOp f -> Ok (f t2)
+        | _ -> Error (Eval_error "Failed to evaluate application."))
+     | _ -> Error (Eval_error "Failed to evaluate application."))
   | Abs _ as x ->
     Ok x (* Not sure that evaluation should occur inside an abstraction *)
   | IfThenElse (c, t, f) ->
-    let ( let* ) = Result.bind in
     let* res = eval env c in
     (match res with
      | Const (Bool true) -> eval env t
