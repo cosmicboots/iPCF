@@ -54,11 +54,11 @@ let evaluate ctx term =
          ast)
   in
   (* Type inference *)
-  let+ t = ast |> Typing.infer_type Typing.init_context in
+  let+ t = Typing.infer_type Typing.init_context ast in
   (* Evaluation *)
   let^ eval_res =
     Evaluator.eval
-      (fun x -> Evaluator.IntOp (List.assoc x Intops.Operations.operations))
+      (fun x -> Evaluator.IntOp (List.assoc x Intops.Operations.t))
       ast
   in
   Ok (eval_res, t, ctx)

@@ -4,6 +4,6 @@ let is_app : 'a. 'a Parser.terms -> 'a Parser.terms = function
 ;;
 
 module Operations = struct
-  let operations = [ "isApp", is_app ]
-  let keys = List.map fst operations
+  let t = [ "isApp", is_app ]
+  let keys = List.map fst t
 end
