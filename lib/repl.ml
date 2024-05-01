@@ -58,7 +58,7 @@ let evaluate ctx term =
   (* Evaluation *)
   let^ eval_res =
     Evaluator.eval
-      (fun x -> Evaluator.IntOp (List.assoc x Intops.Operations.t))
+      (fun x -> Evaluator.IntOp (fst @@ List.assoc x Intops.Operations.t))
       ast
   in
   Ok (eval_res, t, ctx)

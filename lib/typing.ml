@@ -89,10 +89,15 @@ type 'a context = 'a -> (Type.t, type_error) result
 let init_context s =
   match List.assoc_opt s Intops.Operations.t with
   | None -> Error Not_in_context
-  | Some _ ->
-    let t1 = get_var_id () in
-    let t2 = get_var_id () in
-    Ok (`Arrow (`Box (`Var t1), `Var t2))
+  | Some (_, t) ->
+    let rec f : Intops.Operations.types -> Type.t = function
+      | `Var -> `Var (get_var_id ())
+      | `Ground `Bool -> `Ground Bool
+      | `Ground `Nat -> `Ground Nat
+      | `Arrow (t1, t2) -> `Arrow (f t1, f t2)
+      | `Box t -> `Box (f t)
+    in
+    Ok (f t)
 ;;
 
 let rec check
