@@ -252,23 +252,9 @@ let unify ctx =
           |> unify' s
         | `Box t1, `Box t2 -> unify' s @@ ConstraintCtx.add (t1, t2) ctx
         | t2, (`Var _ as t1) | (`Var _ as t1), t2 ->
-          (* Perform substitution in the rest of the context *)
-          let ctx = subst_ctx s ctx in
           (* Add substitution to solution *)
-          if SubstMap.mem t1 s
-          then
-            Error
-              (Unification_error
-                 (Printf.sprintf
-                    "Duplication substitution check failed: %s = %s. SubstMap \
-                     contains: %s = %s"
-                    (Type.show t1)
-                    (Type.show t2)
-                    (Type.show t1)
-                    (Type.show @@ SubstMap.find t1 s)))
-          else (
-            let s = SubstMap.add t1 t2 s in
-            ctx |> unify' s)
+          let s = SubstMap.add t1 t2 s in
+          ctx |> subst_ctx s |> unify' s
         | t1, t2 ->
           Error
             (Unification_error
