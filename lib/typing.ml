@@ -73,10 +73,6 @@ module ConstraintCtx = struct
   ;;
 end
 
-(** A context is a mapping from variables to types *)
-type 'a context = 'a -> (Type.t, type_error) result
-
-let init_context _ = Error Not_in_context
 let next_var_id = ref 0
 
 (** [get_var_id ()] returns a fresh variable identifier and increments the
@@ -85,6 +81,18 @@ let get_var_id () =
   let id = !next_var_id in
   next_var_id := id + 1;
   id
+;;
+
+(** A context is a mapping from variables to types *)
+type 'a context = 'a -> (Type.t, type_error) result
+
+let init_context s =
+  match List.assoc_opt s Intops.Operations.t with
+  | None -> Error Not_in_context
+  | Some _ ->
+    let t1 = get_var_id () in
+    let t2 = get_var_id () in
+    Ok (`Arrow (`Box (`Var t1), `Var t2))
 ;;
 
 let rec check
@@ -192,6 +200,7 @@ module SubstMap = struct
     f (bindings m)
   ;;
 
+  (** [apply t s] applies the substitutions [s] to the type [t]. *)
   let apply : Type.t -> Type.t t -> Type.t =
     fun t s ->
     let rec apply' = function
@@ -219,12 +228,7 @@ type substitutions = Type.t SubstMap.t
 let subst_ctx : substitutions -> ConstraintCtx.t -> ConstraintCtx.t =
   fun subst ctx ->
   ConstraintCtx.map
-    (fun ((k, v) as t) ->
-      match k with
-      | `Var x ->
-        let v = SubstMap.find_opt (`Var x) subst |> Option.value ~default:v in
-        k, v
-      | _ -> t)
+    (fun (t1, t2) -> SubstMap.apply t1 subst, SubstMap.apply t2 subst)
     ctx
 ;;
 
@@ -251,8 +255,20 @@ let unify ctx =
           (* Perform substitution in the rest of the context *)
           let ctx = subst_ctx s ctx in
           (* Add substitution to solution *)
-          let s = SubstMap.add t1 t2 s in
-          ctx |> unify' s
+          if SubstMap.mem t1 s
+          then
+            Error
+              (Unification_error
+                 (Printf.sprintf
+                    "Duplication substitution check failed: %s = %s. SubstMap \
+                     contains: %s = %s"
+                    (Type.show t1)
+                    (Type.show t2)
+                    (Type.show t1)
+                    (Type.show @@ SubstMap.find t1 s)))
+          else (
+            let s = SubstMap.add t1 t2 s in
+            ctx |> unify' s)
         | t1, t2 ->
           Error
             (Unification_error

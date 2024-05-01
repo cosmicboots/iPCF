@@ -21,7 +21,7 @@ module ConstraintCtx : sig
   type t
 end
 
-val init_context : 'a context
+val init_context : string context
 
 val check
   :  'a context
