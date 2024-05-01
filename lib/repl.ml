@@ -141,14 +141,29 @@ You can exit the REPL with either [exit] or [CTRL+D]
     | "" -> loop ctx
     | ":quit" -> ()
     | ":ctx" ->
-      Context.bindings ctx
-      |> List.iter (fun (k, v) ->
-        let t = Result.get_ok @@ Typing.infer_type Typing.init_context v in
-        ANSITerminal.(
-          printf [ magenta ] "%s" k;
-          printf [ blue ] " : ";
-          printf [ green ] "%s" (Typing.Type.show t));
-        Printf.printf "\n%!");
+      let f =
+        List.iter (fun (k, v) ->
+          let t = Result.get_ok @@ Typing.infer_type Typing.init_context v in
+          ANSITerminal.(
+            printf [ magenta ] "%s" k;
+            printf [ blue ] " : ";
+            printf [ green ] "%s" (Typing.Type.show t));
+          Printf.printf "\n%!")
+      in
+      Context.bindings ctx |> f;
+      let int_terms =
+        List.map (fun (k, _) ->
+          ( k
+          , Result.get_ok
+            @@ Evaluator.eval
+                 (fun x ->
+                   Evaluator.IntOp (fst @@ List.assoc x Intops.Operations.t))
+                 (Parser.Var k) ))
+        @@ List.filter
+             (fun (k, _) -> not @@ Context.mem k ctx)
+             Intops.Operations.t
+      in
+      int_terms |> f;
       loop ctx
     | ":load" | ":l" ->
       (match List.nth_opt args 1 with
