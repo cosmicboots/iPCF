@@ -237,6 +237,17 @@ let subst_ctx : substitutions -> ConstraintCtx.t -> ConstraintCtx.t =
     ctx
 ;;
 
+(** [occurs_check x t] returns [true] if [x] occurs in the term [t] *)
+let occurs_check x (t : Type.t) =
+  let rec occurs_check' x = function
+    | `Ground _ -> false
+    | `Arrow (t1, t2) -> occurs_check' x t1 || occurs_check' x t2
+    | `Box t -> occurs_check' x t
+    | `Var _ as y -> x = y
+  in
+  occurs_check' x t
+;;
+
 let unify ctx =
   let rec unify' s ctx =
     match ConstraintCtx.choose_opt ctx with
@@ -257,9 +268,12 @@ let unify ctx =
           |> unify' s
         | `Box t1, `Box t2 -> unify' s @@ ConstraintCtx.add (t1, t2) ctx
         | t2, (`Var _ as t1) | (`Var _ as t1), t2 ->
-          (* Add substitution to solution *)
-          let s = SubstMap.add t1 t2 s in
-          ctx |> subst_ctx s |> unify' s
+          if occurs_check t1 t2
+          then Error (Unification_error "Occurs check failed")
+          else (
+            (* Add substitution to solution *)
+            let s = SubstMap.add t1 t2 s in
+            ctx |> subst_ctx s |> unify' s)
         | t1, t2 ->
           Error
             (Unification_error
@@ -314,4 +328,13 @@ let infer_type ctx e =
   let* t, c = check ctx e in
   let* s = unify c in
   Ok (SubstMap.apply t s)
+;;
+
+let%test "unsolvable type" =
+  let prog = {| (\x . x y x) |} in
+  let e = Result.get_ok @@ Parser.parse @@ Result.get_ok @@ Lexer.lex prog in
+  let t = infer_type init_context e in
+  match t with
+  | Ok _ -> false
+  | Error _ -> true
 ;;
