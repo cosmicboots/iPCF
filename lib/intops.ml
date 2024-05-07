@@ -53,8 +53,12 @@ module Operations = struct
   and is_normal_form = function
     | Box e ->
       let e' =
-        Result.get_ok
-        @@ Evaluator.eval (fun x -> Evaluator.IntOp (fst @@ List.assoc x t)) e
+        Evaluator.reduce
+          (fun _ ->
+            raise
+              (Invalid_argument
+                 "TODO: get nested intensional operations working"))
+          e
       in
       Parser.Box (Const (Bool (e = e')))
     | _ ->
@@ -62,6 +66,14 @@ module Operations = struct
         (Invalid_argument
            "If this is reached, the typechecker failed elsewhere")
   ;;
+
+  let exec (name : string) (args : 'a Parser.terms) : 'a Parser.terms =
+    let f, _ = List.assoc name t in
+    f args
+  ;;
+
+  (** [contains x] is [true] if [x] is a valid intensional operation *)
+  let contains x = List.mem_assoc x t
 
   let keys = List.map fst t
 end

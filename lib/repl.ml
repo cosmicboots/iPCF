@@ -4,7 +4,6 @@ type error =
   | ParseError of Parser.parse_error
   | TypeError of Typing.type_error
   | LexingError of Lexer.lexing_error
-  | EvalError of Evaluator.eval_error
   | ReplError of string
 
 let ( let$ ) r code =
@@ -23,12 +22,6 @@ let ( let& ) r code =
   match r with
   | Ok x -> code x
   | Error x -> Error (LexingError x)
-;;
-
-let ( let^ ) r code =
-  match r with
-  | Ok x -> code x
-  | Error x -> Error (EvalError x)
 ;;
 
 module Context = Map.Make (String) [@@deriving show]
@@ -56,9 +49,9 @@ let evaluate ctx term =
   (* Type inference *)
   let+ t = Typing.infer_type Typing.init_context ast in
   (* Evaluation *)
-  let^ eval_res =
-    Evaluator.eval
-      (fun x -> Evaluator.IntOp (fst @@ List.assoc x Intops.Operations.t))
+  let eval_res =
+    Evaluator.reduce
+      (fun x -> List.assoc_opt x Intops.Operations.t |> Option.map fst)
       ast
   in
   Ok (eval_res, t, ctx)
@@ -85,10 +78,7 @@ let print_error error =
    | ReplError e -> ANSITerminal.(printf [ red ] "Error: %s" e)
    | LexingError e ->
      ANSITerminal.(
-       printf [ red ] "LexingError: %s" @@ Lexer.show_lexing_error e)
-   | EvalError e ->
-     ANSITerminal.(
-       printf [ red ] "EvalError: %s" @@ Evaluator.show_eval_error e));
+       printf [ red ] "LexingError: %s" @@ Lexer.show_lexing_error e));
   Printf.printf "\n%!"
 ;;
 
@@ -154,11 +144,9 @@ You can exit the REPL with either [exit] or [CTRL+D]
       let int_terms =
         List.map (fun (k, _) ->
           ( k
-          , Result.get_ok
-            @@ Evaluator.eval
-                 (fun x ->
-                   Evaluator.IntOp (fst @@ List.assoc x Intops.Operations.t))
-                 (Parser.Var k) ))
+          , Evaluator.reduce
+              (fun x -> List.assoc_opt x Intops.Operations.t |> Option.map fst)
+              (Parser.Var k) ))
         @@ List.filter
              (fun (k, _) -> not @@ Context.mem k ctx)
              Intops.Operations.t

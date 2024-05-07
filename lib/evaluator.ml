@@ -20,122 +20,52 @@ let%test "subst" =
 ;;
 
 (** [root_reduction t] applies a single root reduction rule to [t].*)
-let root_reduction =
+let root_reduction
+  : 'a.
+  ('a -> ('a Parser.terms -> 'a Parser.terms) option)
+  -> 'a Parser.terms
+  -> 'a Parser.terms
+  =
+  fun env ->
   Parser.(
     function
     | App (Abs s, t) -> subst s t (* Beta reduction *)
-    | IfThenElse (Const (Bool true), t, _) -> t
-    | IfThenElse (Const (Bool false), _, f) -> f
+    | App (Var x, t) when Option.is_some (env x) ->
+      (* Intensional operation *)
+      Option.get (env x) @@ t
     | Unbox (Box m, n) -> subst n m
     | Fix m -> subst m (Box (Fix m))
     | Succ (Const (Nat n)) -> Const (Nat (n + 1))
     | Pred (Const (Nat n)) -> Const (Nat (n - 1))
     | IsZero (Const (Nat 0)) -> Const (Bool true)
     | IsZero (Const (Nat _)) -> Const (Bool false)
+    | IfThenElse (Const (Bool true), t, _) -> t
+    | IfThenElse (Const (Bool false), _, f) -> f
     | t -> t)
 ;;
 
 (** [redstep t] maps the root reduction steps over the term [t] once. *)
-let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
-  fun t ->
-  let red = root_reduction t in
-  match red with
-  | App (x, y) -> App (redstep x, redstep y)
-  | IfThenElse (c, t, e) -> IfThenElse (redstep c, t, e)
-  | Var _ as v -> v
-  | Const _ as c -> c
-  | Abs s -> Abs (redstep s)
-  | Box m -> Box (redstep m)
-  | Unbox (m, n) -> Unbox (redstep m, redstep n)
-  | Fix m -> Fix (redstep m)
-  | Succ x -> Succ (redstep x)
-  | Pred x -> Pred (redstep x)
-  | IsZero x -> IsZero (redstep x)
-;;
-
-type eval_error =
-  | Eval_error of string
-  | Not_implemented
-[@@deriving show]
-
-let lift_nat f = function
-  | Parser.Const (Nat x) -> Ok (f x)
-  | _ -> Error (Eval_error "Failed to lift nat")
-;;
-
-type 'a operation =
-  | Term of 'a Parser.terms
-  | IntOp of ('a Parser.terms -> 'a Parser.terms)
-
-let rec eval
+let rec redstep
   : 'a.
-  ('a -> 'a operation)
+  ('a -> ('a Parser.terms -> 'a Parser.terms) option)
   -> 'a Parser.terms
-  -> ('a Parser.terms, eval_error) result
+  -> 'a Parser.terms
   =
   fun env t ->
-  let ( let* ) = Result.bind in
-  match t with
-  | Parser.Var x as x' ->
-    (match env x with
-     | Term t -> eval env t
-     | IntOp _ ->
-       (* Ignore intensional operations as those are handled in applications *)
-       Ok x')
-  | Const _ as x -> Ok x
-  | Succ x ->
-    Result.bind (eval env x) (fun r ->
-      lift_nat (fun x -> Parser.Const (Nat (x + 1))) r)
-  | Pred x ->
-    Result.bind (eval env x) (fun r ->
-      lift_nat (fun x -> Parser.Const (Nat (x - 1))) r)
-  (* Maybe this is the right rule for app...?
-     Need to double check that subst doesn't do anything weird in relation to
-     quoted values. *)
-  | App (t1, t2) ->
-    (* Reduce the first term *)
-    let* t1' = eval env t1 in
-    (match t1' with
-     (* We can directly apply the abstracion substitution *)
-     | Abs t -> eval env (subst t t2)
-     (* Otherwise, we have to check if it's an intensional operation *)
-     | Var x ->
-       (match env x with
-        | IntOp f -> Ok (f t2)
-        | _ -> Error (Eval_error "Failed to evaluate application."))
-     | _ -> Error (Eval_error "Failed to evaluate application."))
-  | Abs _ as x ->
-    Ok x (* Not sure that evaluation should occur inside an abstraction *)
-  | IfThenElse (c, t, f) ->
-    let* res = eval env c in
-    (match res with
-     | Const (Bool true) -> eval env t
-     | Const (Bool false) -> eval env f
-     | _ ->
-       Error
-         (Eval_error "Failed to evaluate if-then-else. Conditional not a bool."))
-  | IsZero x ->
-    Result.bind (eval env x) (fun r ->
-      lift_nat (fun x -> Parser.Const (Bool (x = 0))) r)
-  (* Quoted terms *)
-  | Box _ as x -> Ok x
-  (* Unboxes the term m into the term n *)
-  | Unbox (Box m, _n) ->
-    let ( let* ) = Result.bind in
-    let* m' = eval env m in
-    Ok (subst _n m')
-  | Unbox _ -> Error (Eval_error "Can't unbox a non-boxed term")
-  | Fix m -> Ok (subst m (Box (Fix m)))
-;;
-
-let%test "eval" =
-  let t : string Parser.terms =
-    Parser.(Unbox (Box (Const (Nat 5)), Var None))
-  in
-  let result =
-    Result.get_ok @@ eval (fun _ -> raise (Invalid_argument "")) t
-  in
-  result = Parser.(Const (Nat 5))
+  let red = root_reduction env t in
+  match red with
+  | App (x, y) -> App (redstep env x, redstep env y)
+  | IfThenElse (c, t, e) -> IfThenElse (redstep env c, t, e)
+  | Var _ as v -> v
+  | Const _ as c -> c
+  | Abs s -> Abs s (* TODO: We should be able to reduce under lambda *)
+  | Box m -> Box (redstep env m)
+  | Unbox (m, n) ->
+    Unbox (redstep env m, n) (* TODO: We should be able to reduce under n *)
+  | Fix m -> Fix m (* TODO: We should be able to reduce under m *)
+  | Succ x -> Succ (redstep env x)
+  | Pred x -> Pred (redstep env x)
+  | IsZero x -> IsZero (redstep env x)
 ;;
 
 let%test "single reduction step" =
@@ -143,14 +73,14 @@ let%test "single reduction step" =
     Parser.(
       App (App (Abs (Abs (App (Var (Some None), Var None))), Var "z"), Var "z"))
   in
-  let result = redstep t in
+  let result = redstep (fun _ -> None) t in
   result = App (Abs (App (Var (Some "z"), Var None)), Var "z")
 ;;
 
 (** [reduce t] fully reduces the term [t]. *)
-let reduce t =
+let reduce env t =
   let rec f t =
-    let red = redstep t in
+    let red = redstep env t in
     (* ppx_deriving eq is used rather than Stdlib.(=) because ppx_deriving eq
        is a short-circuiting function, which is faster in theory and it's
        guaranteed not to raise at runtime. *)
@@ -164,6 +94,6 @@ let%test "full reduction" =
     Parser.(
       App (App (Abs (Abs (App (Var (Some None), Var None))), Var "z"), Var "z"))
   in
-  let result = reduce t in
+  let result = reduce (fun _ -> None) t in
   result = App (Var "z", Var "z")
 ;;
