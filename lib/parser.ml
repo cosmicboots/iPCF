@@ -6,6 +6,27 @@ type ground_terms =
   | Nat of int
 [@@deriving show { with_path = false }, eq, ord]
 
+module IntOps = struct
+  type t =
+    | IsApp
+    | IsAbs
+    | NumberOfVars
+    | IsNormalForm
+    | Tick
+  [@@deriving show { with_path = false }, eq, ord]
+
+  let of_string = function
+    | "isApp" -> Some IsApp
+    | "isAbs" -> Some IsAbs
+    | "numberOfVars" -> Some NumberOfVars
+    | "isNormalForm" -> Some IsNormalForm
+    | "tick" -> Some Tick
+    | _ -> None
+  ;;
+
+  let idents = [ "isApp"; "isAbs"; "numberOfVars"; "isNormalForm"; "tick" ]
+end
+
 type 'a terms =
   (* Basic lambda terms *)
   | Var of 'a
@@ -20,6 +41,7 @@ type 'a terms =
   | Box of 'a terms
   | Unbox of 'a terms * 'a option terms
   | Fix of 'a option terms
+  | IntOp of IntOps.t
 [@@deriving show { with_path = false }, eq, ord]
 
 let show_terms a =
@@ -43,6 +65,7 @@ let show_terms a =
     | Box x -> Printf.sprintf "box %s" (pp_terms' x)
     | Unbox _ -> "(let)"
     | Fix _ -> "(fix)"
+    | IntOp x -> Printf.sprintf "IntOp.%s" (IntOps.show x)
   in
   pp_terms' a
 ;;
@@ -69,6 +92,7 @@ let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
   | Box m -> Box (bind_terms f m)
   | Fix m -> Fix (bind_terms f' m)
   | Unbox (m, n) -> Unbox (bind_terms f m, bind_terms f' n)
+  | IntOp x -> IntOp x
 ;;
 
 (** [capture ident term] captures all free occurences of [ident] in [term]. *)
@@ -148,7 +172,15 @@ let parse (input : Lexer.t list) =
     | _ -> Error (Parser_error ())
   in
   match sr input [] with
-  | Ok (PE x) -> Ok x
+  | Ok (PE x) ->
+    Ok
+      (bind_terms
+         (fun x ->
+           (* Replace all free variables with intensional operations *)
+           match IntOps.of_string x with
+           | Some name -> IntOp name
+           | None -> Var x)
+         x)
   | _ -> Error (Parser_error ())
 ;;
 
@@ -176,6 +208,8 @@ Got:      %s
         {|\ x . \ y . x y|}
         (Abs (Abs (App (Var (Some None), Var None))))
     ;;
+
+    let%test "parser intop" = run_test "isApp" (IntOp IntOps.IsApp)
 
     let%test {|\f . \x . f ( x )|} =
       run_test

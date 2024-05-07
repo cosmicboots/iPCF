@@ -1,4 +1,6 @@
-module Operations = struct
+module Operations (E : Moduletypes.Eval) = struct
+  include Parser.IntOps
+
   type gt =
     [ `Bool
     | `Nat
@@ -12,14 +14,22 @@ module Operations = struct
     | `Var
     ]
 
+  let get_type = function
+    | IsApp -> `Arrow (`Box `Var, `Box (`Ground `Bool))
+    | IsAbs -> `Arrow (`Box `Var, `Box (`Ground `Bool))
+    | NumberOfVars -> `Arrow (`Box `Var, `Box (`Ground `Nat))
+    | IsNormalForm -> `Arrow (`Box `Var, `Box (`Ground `Bool))
+    | Tick -> `Arrow (`Box `Var, `Box `Var)
+  ;;
+
   (* Mutual recursion used to allow nested intensional operations *)
-  let rec t =
-    [ "isApp", (is_app, `Arrow (`Box `Var, `Box (`Ground `Bool)))
-    ; "isAbs", (is_abs, `Arrow (`Box `Var, `Box (`Ground `Bool)))
-    ; "numberOfVars", (number_of_vars, `Arrow (`Box `Var, `Box (`Ground `Nat)))
-    ; "isNormalForm", (is_normal_form, `Arrow (`Box `Var, `Box (`Ground `Bool)))
-    ; "tick", (one_step_reduction, `Arrow (`Box `Var, `Box `Var))
-    ]
+  let rec exec op t =
+    match op with
+    | IsApp -> is_app t
+    | IsAbs -> is_abs t
+    | NumberOfVars -> number_of_vars t
+    | IsNormalForm -> is_normal_form t
+    | Tick -> one_step_reduction t
 
   and is_app : 'a. 'a Parser.terms -> 'a Parser.terms = function
     | Parser.Box (App _) -> Parser.(Box (Const (Bool true)))
@@ -45,6 +55,7 @@ module Operations = struct
       | IsZero x -> f x
       | Unbox (_, n) -> f n
       | Fix _ -> 0
+      | IntOp _ -> 0
     in
     match t with
     | Box t -> Parser.(Box (Const (Nat (f t))))
@@ -53,9 +64,7 @@ module Operations = struct
   (* This function takes [string Parser.terms] which would be the type of closed terms *)
   and is_normal_form = function
     | Box e ->
-      let e' =
-        Evaluator.reduce (fun x -> List.assoc_opt x t |> Option.map fst) e
-      in
+      let e' = E.reduce e in
       Parser.Box (Const (Bool (e = e')))
     | _ ->
       raise
@@ -64,9 +73,7 @@ module Operations = struct
 
   and one_step_reduction = function
     | Parser.Box e ->
-      let e' =
-        Evaluator.redstep (fun x -> List.assoc_opt x t |> Option.map fst) e
-      in
+      let e' = E.redstep e in
       Parser.Box e'
     | _ ->
       raise
@@ -74,26 +81,17 @@ module Operations = struct
            "If this is reached, the typechecker failed elsewhere")
   ;;
 
-  let exec (name : string) (args : 'a Parser.terms) : 'a Parser.terms =
-    let f, _ = List.assoc name t in
-    f args
+  (*
+  let%test "is_normal_form" =
+    (is_normal_form Parser.(Box (App (Abs (Var None), Const (Bool true))))
+     = Parser.(Box (Const (Bool false))))
+    && is_normal_form Parser.(Box (Const (Bool true)))
+       = Parser.(Box (Const (Bool true)))
   ;;
+  *)
 
-  (** [contains x] is [true] if [x] is a valid intensional operation *)
-  let contains x = List.mem_assoc x t
-
-  let keys = List.map fst t
+  let%test "number_of_vars" =
+    number_of_vars Parser.(Box (Abs (Abs (Var None))))
+    = Parser.(Box (Const (Nat 1)))
+  ;;
 end
-
-let%test "is_normal_form" =
-  (Operations.is_normal_form
-     Parser.(Box (App (Abs (Var None), Const (Bool true))))
-   = Parser.(Box (Const (Bool false))))
-  && Operations.is_normal_form Parser.(Box (Const (Bool true)))
-     = Parser.(Box (Const (Bool true)))
-;;
-
-let%test "number_of_vars" =
-  Operations.number_of_vars Parser.(Box (Abs (Abs (Var None))))
-  = Parser.(Box (Const (Nat 1)))
-;;

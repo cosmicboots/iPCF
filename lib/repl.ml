@@ -1,5 +1,8 @@
 let ( let* ) = Result.bind
 
+module rec IntOpsImpl : Moduletypes.Ops = Intops.Operations (EvalImpl)
+and EvalImpl : Moduletypes.Eval = Evaluator.Reduction (IntOpsImpl)
+
 type error =
   | ParseError of Parser.parse_error
   | TypeError of Typing.type_error
@@ -49,11 +52,7 @@ let evaluate ctx term =
   (* Type inference *)
   let+ t = Typing.infer_type Typing.init_context ast in
   (* Evaluation *)
-  let eval_res =
-    Evaluator.reduce
-      (fun x -> List.assoc_opt x Intops.Operations.t |> Option.map fst)
-      ast
-  in
+  let eval_res = EvalImpl.reduce ast in
   Ok (eval_res, t, ctx)
 ;;
 
@@ -142,14 +141,11 @@ You can exit the REPL with either [exit] or [CTRL+D]
       in
       Context.bindings ctx |> f;
       let int_terms =
-        List.map (fun (k, _) ->
+        List.map (fun k ->
           ( k
-          , Evaluator.reduce
-              (fun x -> List.assoc_opt x Intops.Operations.t |> Option.map fst)
-              (Parser.Var k) ))
-        @@ List.filter
-             (fun (k, _) -> not @@ Context.mem k ctx)
-             Intops.Operations.t
+          , EvalImpl.reduce
+              (Lexer.lex k |> Result.get_ok |> Parser.parse |> Result.get_ok) ))
+        @@ List.filter (fun k -> not @@ Context.mem k ctx) Parser.IntOps.idents
       in
       int_terms |> f;
       loop ctx

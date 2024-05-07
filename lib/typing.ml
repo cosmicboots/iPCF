@@ -86,19 +86,10 @@ let get_var_id () =
 (** A context is a mapping from variables to types *)
 type 'a context = 'a -> (Type.t, type_error) result
 
-let init_context s =
-  match List.assoc_opt s Intops.Operations.t with
-  | None -> Error Not_in_context
-  | Some (_, t) ->
-    let rec f : Intops.Operations.types -> Type.t = function
-      | `Var -> `Var (get_var_id ())
-      | `Ground `Bool -> `Ground Bool
-      | `Ground `Nat -> `Ground Nat
-      | `Arrow (t1, t2) -> `Arrow (f t1, f t2)
-      | `Box t -> `Box (f t)
-    in
-    Ok (f t)
-;;
+let init_context _ = Error Not_in_context
+
+module rec IntOpsImpl : Moduletypes.Ops = Intops.Operations (EvalImpl)
+and EvalImpl : Moduletypes.Eval = Evaluator.Reduction (IntOpsImpl)
 
 let rec check
   : 'a.
@@ -107,6 +98,15 @@ let rec check
   -> (Type.t * ConstraintCtx.t, type_error) result
   =
   fun ctx -> function
+  | IntOp x ->
+    let rec f : IntOpsImpl.types -> Type.t = function
+      | `Var -> `Var (get_var_id ())
+      | `Ground `Bool -> `Ground Bool
+      | `Ground `Nat -> `Ground Nat
+      | `Arrow (t1, t2) -> `Arrow (f t1, f t2)
+      | `Box t -> `Box (f t)
+    in
+    Ok (IntOpsImpl.get_type x |> f, ConstraintCtx.empty)
   | Var x ->
     let* ctx' = ctx x in
     Ok (ctx', ConstraintCtx.empty)
