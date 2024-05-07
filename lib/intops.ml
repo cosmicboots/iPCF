@@ -18,6 +18,7 @@ module Operations = struct
     ; "isAbs", (is_abs, `Arrow (`Box `Var, `Box (`Ground `Bool)))
     ; "numberOfVars", (number_of_vars, `Arrow (`Box `Var, `Box (`Ground `Nat)))
     ; "isNormalForm", (is_normal_form, `Arrow (`Box `Var, `Box (`Ground `Bool)))
+    ; "tick", (one_step_reduction, `Arrow (`Box `Var, `Box `Var))
     ]
 
   and is_app : 'a. 'a Parser.terms -> 'a Parser.terms = function
@@ -56,6 +57,17 @@ module Operations = struct
         Evaluator.reduce (fun x -> List.assoc_opt x t |> Option.map fst) e
       in
       Parser.Box (Const (Bool (e = e')))
+    | _ ->
+      raise
+        (Invalid_argument
+           "If this is reached, the typechecker failed elsewhere")
+
+  and one_step_reduction = function
+    | Parser.Box e ->
+      let e' =
+        Evaluator.redstep (fun x -> List.assoc_opt x t |> Option.map fst) e
+      in
+      Parser.Box e'
     | _ ->
       raise
         (Invalid_argument

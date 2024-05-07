@@ -53,16 +53,17 @@ let rec redstep
   =
   fun env t ->
   let red = root_reduction env t in
+  (* TODO: [env'] should be able to expand intensional operations under bound terms as well..? *)
+  let env' _ = None in
   match red with
   | App (x, y) -> App (redstep env x, redstep env y)
   | IfThenElse (c, t, e) -> IfThenElse (redstep env c, t, e)
   | Var _ as v -> v
   | Const _ as c -> c
-  | Abs s -> Abs s (* TODO: We should be able to reduce under lambda *)
+  | Abs s -> Abs (redstep env' s)
   | Box m -> Box (redstep env m)
-  | Unbox (m, n) ->
-    Unbox (redstep env m, n) (* TODO: We should be able to reduce under n *)
-  | Fix m -> Fix m (* TODO: We should be able to reduce under m *)
+  | Unbox (m, n) -> Unbox (redstep env m, redstep env' n)
+  | Fix m -> Fix (redstep env' m)
   | Succ x -> Succ (redstep env x)
   | Pred x -> Pred (redstep env x)
   | IsZero x -> IsZero (redstep env x)
