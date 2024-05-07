@@ -81,10 +81,7 @@ let%test "single reduction step" =
 let reduce env t =
   let rec f t =
     let red = redstep env t in
-    (* ppx_deriving eq is used rather than Stdlib.(=) because ppx_deriving eq
-       is a short-circuiting function, which is faster in theory and it's
-       guaranteed not to raise at runtime. *)
-    if Parser.equal_terms String.equal red t then t else f red
+    if red = t then t else f red
   in
   f t
 ;;

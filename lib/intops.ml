@@ -53,12 +53,7 @@ module Operations = struct
   and is_normal_form = function
     | Box e ->
       let e' =
-        Evaluator.reduce
-          (fun _ ->
-            raise
-              (Invalid_argument
-                 "TODO: get nested intensional operations working"))
-          e
+        Evaluator.reduce (fun x -> List.assoc_opt x t |> Option.map fst) e
       in
       Parser.Box (Const (Bool (e = e')))
     | _ ->
