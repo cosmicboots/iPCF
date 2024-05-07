@@ -155,7 +155,26 @@ iPCF> \x . \y . x
 (fun) : 'a -> 'b -> 'a
 ```
 
-### Intensional Operations
+### Intensional Syntax
 
-TODO
+
+There are 3 main pieces of syntax that are added to the language to support
+intensionality:
+
+1. The box constructor: `box <expr>`
+2. The box eliminator (unbox): `let box <var> <- <expr> in <body>`  
+   This unboxes the term `<expr>` and binds it to `<var>` in `<body>`.
+3. The intensional fixed point combinator: `fix <var> in <body>`  
+
+
+## Intensional Operations
+
+There are currently a hand full of built in intensional operations:
+
+- `isApp : Box ('a) -> Box (Bool)`: Checks if the boxed term is an application
+- `isAbs : Box ('a) -> Box (Bool)`: Checks if the boxed term is an abstraction
+- `numberOfVars : Box ('a) -> Box (Nat)`: Counts the number of variables used in the boxed term
+- `isNormalForm : Box ('a) -> Box (Bool)`: Checks if the boxed term is in normal form
+- `tick : Box ('b) -> Box ('a)`: Reduces the boxed term by a single reduction step
+
 
