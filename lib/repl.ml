@@ -117,7 +117,7 @@ let run debug =
 Welcome to the iPCF REPL!
 =========================
 
-You can exit the REPL with either [exit] or [CTRL+D]
+You can exit the REPL with either [:quit] or [CTRL+D]
 |};
   let rec loop ctx =
     let hints_callback line =
