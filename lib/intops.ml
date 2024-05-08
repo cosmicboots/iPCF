@@ -51,6 +51,8 @@ module Operations (E : Moduletypes.Eval) = struct
       | Const _ -> 0
       | Succ x -> f x
       | Pred x -> f x
+      | Add (x, y) -> f x + f y
+      | Mult (x, y) -> f x + f y
       | IfThenElse (c, t, e) -> f c + f t + f e
       | IsZero x -> f x
       | Unbox (_, n) -> f n

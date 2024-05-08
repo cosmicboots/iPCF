@@ -33,6 +33,8 @@ type 'a terms =
   | Const of ground_terms
   | Succ of 'a terms
   | Pred of 'a terms
+  | Add of 'a terms * 'a terms
+  | Mult of 'a terms * 'a terms
   | App of 'a terms * 'a terms
   | Abs of 'a option terms
   | IfThenElse of 'a terms * 'a terms * 'a terms
@@ -61,6 +63,8 @@ let show_terms a =
         (pp_terms' e)
     | Succ x -> Printf.sprintf "succ %s" (pp_terms' x)
     | Pred x -> Printf.sprintf "pred %s" (pp_terms' x)
+    | Add (x, y) -> Printf.sprintf "(%s + %s)" (pp_terms' x) (pp_terms' y)
+    | Mult (x, y) -> Printf.sprintf "(%s * %s)" (pp_terms' x) (pp_terms' y)
     | IsZero x -> Printf.sprintf "%s?" (pp_terms' x)
     | Box x -> Printf.sprintf "box %s" (pp_terms' x)
     | Unbox _ -> "(let)"
@@ -87,6 +91,8 @@ let rec bind_terms : 'a 'b. ('a -> 'b terms) -> 'a terms -> 'b terms =
     IfThenElse (bind_terms f c, bind_terms f t, bind_terms f e)
   | Succ x -> Succ (bind_terms f x)
   | Pred x -> Pred (bind_terms f x)
+  | Add (x, y) -> Add (bind_terms f x, bind_terms f y)
+  | Mult (x, y) -> Mult (bind_terms f x, bind_terms f y)
   | IsZero x -> IsZero (bind_terms f x)
   (* Boxed terms *)
   | Box m -> Box (bind_terms f m)
@@ -136,6 +142,9 @@ let parse (input : Lexer.t list) =
       sr i (PE (Const (Nat (x - 1))) :: r)
     (* Pred of arbitrary expression *)
     | i, PE x :: Tok Lexer.Pred :: r -> sr i (PE (Pred x) :: r)
+    (* Add and mult TODO *)
+    | i, PE y :: Tok Lexer.Plus :: PE x :: r -> sr i (PE (Add (x, y)) :: r)
+    | i, PE y :: Tok Lexer.Star :: PE x :: r -> sr i (PE (Mult (x, y)) :: r)
     (* IsZero *)
     | i, Tok Lexer.IsZero :: PE e :: r -> sr i (PE (IsZero e) :: r)
     (* Arbitrary number literals *)
@@ -210,6 +219,12 @@ Got:      %s
     ;;
 
     let%test "parser intop" = run_test "isApp" (IntOp IntOps.IsApp)
+
+    let%test "add/mult" =
+      run_test
+        {|1 + (2 * 3)|}
+        (Add (Const (Nat 1), Mult (Const (Nat 2), Const (Nat 3))))
+    ;;
 
     let%test {|\f . \x . f ( x )|} =
       run_test

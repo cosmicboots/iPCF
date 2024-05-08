@@ -32,6 +32,8 @@ module Reduction (Ops : Moduletypes.Ops) = struct
       | Pred (Const (Nat 0)) -> Const (Nat 0)
       | Pred (Const (Nat n)) -> Const (Nat (n - 1))
       | Pred (Succ t) -> t
+      | Add (Const (Nat x), Const (Nat y)) -> Const (Nat (x + y))
+      | Mult (Const (Nat x), Const (Nat y)) -> Const (Nat (x * y))
       | IsZero (Succ _) -> Const (Bool false)
       | IsZero (Const (Nat 0)) -> Const (Bool true)
       | IsZero (Const (Nat _)) -> Const (Bool false)
@@ -49,6 +51,8 @@ module Reduction (Ops : Moduletypes.Ops) = struct
          | Fix m -> Fix m
          | Succ x -> Succ (redstep x)
          | Pred x -> Pred (redstep x)
+         | Add (x, y) -> Add (redstep x, redstep y)
+         | Mult (x, y) -> Mult (redstep x, redstep y)
          | IsZero x -> IsZero (redstep x)
          | IntOp _ as x -> x))
   ;;

@@ -128,6 +128,14 @@ let rec check
   | Pred e ->
     let* t, c = check ctx e in
     Ok (`Ground Type.Nat, ConstraintCtx.add (t, `Ground Type.Nat) c)
+  | Add (x, y) | Mult (x, y) ->
+    let* tx, cx = check ctx x in
+    let* ty, cy = check ctx y in
+    Ok
+      ( `Ground Type.Nat
+      , ConstraintCtx.union cx cy
+        |> ConstraintCtx.add (tx, `Ground Type.Nat)
+        |> ConstraintCtx.add (ty, `Ground Type.Nat) )
   | IsZero e ->
     let* t, c = check ctx e in
     Ok (`Ground Type.Bool, ConstraintCtx.add (t, `Ground Type.Nat) c)

@@ -14,6 +14,8 @@ type t =
   | Pred
   | Number of int
   | IsZero
+  | Plus
+  | Star
   (* Paranthesis *)
   | Lparen
   | Rparen
@@ -63,6 +65,8 @@ let lex s =
     | '0' :: s -> f (Zero :: tokens) s
     | 's' :: 'u' :: 'c' :: 'c' :: s -> f (Succ :: tokens) s
     | 'p' :: 'r' :: 'e' :: 'd' :: s -> f (Pred :: tokens) s
+    | '+' :: s -> f (Plus :: tokens) s
+    | '*' :: s -> f (Star :: tokens) s
     | '?' :: s -> f (IsZero :: tokens) s
     (* Lambda *)
     | '\\' :: s -> f (Backslash :: tokens) s
@@ -117,7 +121,7 @@ let%test "lexer" =
     if then else
     let in box <- fix
     zero 0 succ pred x
-    1234?|}
+    1234? + *|}
   = [ Lparen
     ; Backslash
     ; Ident "x"
@@ -144,5 +148,7 @@ let%test "lexer" =
     ; Ident "x"
     ; Number 1234
     ; IsZero
+    ; Plus
+    ; Star
     ]
 ;;
