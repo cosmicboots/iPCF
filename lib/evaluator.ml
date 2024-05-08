@@ -29,7 +29,10 @@ module Reduction (Ops : Moduletypes.Ops) = struct
       | Unbox (Box m, n) -> subst n m
       | Fix m -> subst m (Box (Fix m))
       | Succ (Const (Nat n)) -> Const (Nat (n + 1))
+      | Pred (Const (Nat 0)) -> Const (Nat 0)
       | Pred (Const (Nat n)) -> Const (Nat (n - 1))
+      | Pred (Succ t) -> t
+      | IsZero (Succ _) -> Const (Bool false)
       | IsZero (Const (Nat 0)) -> Const (Bool true)
       | IsZero (Const (Nat _)) -> Const (Bool false)
       | IfThenElse (Const (Bool true), t, _) -> t
@@ -40,10 +43,10 @@ module Reduction (Ops : Moduletypes.Ops) = struct
          | IfThenElse (c, t, e) -> IfThenElse (redstep c, t, e)
          | Var _ as v -> v
          | Const _ as c -> c
-         | Abs s -> Abs (redstep s)
+         | Abs s -> Abs s
          | Box _ as m -> m
          | Unbox (m, n) -> Unbox (redstep m, redstep n)
-         | Fix m -> Fix (redstep m)
+         | Fix m -> Fix m
          | Succ x -> Succ (redstep x)
          | Pred x -> Pred (redstep x)
          | IsZero x -> IsZero (redstep x)
