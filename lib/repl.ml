@@ -166,6 +166,8 @@ You can exit the REPL with either [:quit] or [CTRL+D]
         printf [ blue ] "Quit out of the interpreter\n";
         printf [ green ] ":ctx\t";
         printf [ blue ] "Print out all the intems in the current context\n";
+        printf [ green ] ":t\t";
+        printf [ blue ] "Print out the type for any given expression\n";
         printf [ green ] ":load\t";
         printf [ blue ] "Load sequence of interpreter commands from a file\n");
       Printf.printf "%!";
@@ -192,8 +194,13 @@ You can exit the REPL with either [:quit] or [CTRL+D]
       int_terms |> f;
       loop ctx
     | ":t" ->
-      let line = List.tl args in
-      handle_line ~type_only:true ~debug ctx (String.concat " " line) |> loop
+      if List.length args < 2
+      then (
+        print_error @@ ReplError ":t requires an expression";
+        loop ctx)
+      else (
+        let line = List.tl args in
+        handle_line ~type_only:true ~debug ctx (String.concat " " line) |> loop)
     | ":load" | ":l" ->
       (match List.nth_opt args 1 with
        | Some filename ->
