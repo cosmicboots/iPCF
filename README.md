@@ -69,7 +69,8 @@ The interpreter supports a few special commands, which are all prefixed with a
 colon:
 
 - `:quit`: Exits the REPL
-- `:ctx`: Prints all the expressions that are stored in the REPL
+- `:ctx`: Prints all the expressions that are stored in the REPL  
+  _The interpreter also supports case-insensitive tab completion for items in the context!_
 - `:load <file>` or `:l <file>`: Loads a file with iPCF expressions and evaluates them
 
 ## Language Syntax

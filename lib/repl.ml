@@ -120,8 +120,26 @@ Welcome to the iPCF REPL!
 You can exit the REPL with either [exit] or [CTRL+D]
 |};
   let rec loop ctx =
+    let comp_callback partial_line ln_completions =
+      if partial_line <> ""
+      then
+        List.filter
+          (fun x ->
+            String.starts_with
+              ~prefix:(String.lowercase_ascii partial_line)
+              (String.lowercase_ascii x))
+          (List.map (fun (k, _) -> k) @@ Context.bindings ctx
+           |> List.append Parser.IntOps.idents)
+        |> List.iter (LNoise.add_completion ln_completions)
+    in
     let line =
-      try Ocamline.read ~prompt:"iPCF>" ~brackets:[ '(', ')' ] () with
+      try
+        Ocamline.read
+          ~prompt:"iPCF>"
+          ~brackets:[ '(', ')' ]
+          ~completion_callback:comp_callback
+          ()
+      with
       | End_of_file -> ":quit"
       | Stdlib.Sys.Break -> ""
     in
