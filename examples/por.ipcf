@@ -1,0 +1,3 @@
+lor := \x . \y . if x then true else y
+ror := \x . \y . if y then true else x
+por := Y (\por. \x . \y . if (isNormalForm x) then (lor (eval x) (eval y)) else (if (isNormalForm y) then (ror (eval x) (eval y)) else (por (tick x) (tick y))))

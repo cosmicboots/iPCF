@@ -1,0 +1,7 @@
+t := box ((\x . if x then 4 else 5) ((\x . x) true))
+t1 := tick t
+isNormalForm t1
+t3 := tick t1
+isNormalForm t3
+t5 := tick t3
+isNormalForm t5

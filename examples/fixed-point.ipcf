@@ -1,0 +1,3 @@
+eval := \x . let box y <- x in y
+G := \x . let box f <- x in box (fix z in f z)
+Y := fix z in (\f . f (eval z f))
