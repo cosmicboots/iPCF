@@ -120,7 +120,12 @@ Welcome to the iPCF REPL!
 You can exit the REPL with either [exit] or [CTRL+D]
 |};
   let rec loop ctx =
-    let comp_callback partial_line ln_completions =
+    let hints_callback line =
+      if line = ":load " || line = ":l "
+      then Some ("<filepath>", LNoise.Cyan, false)
+      else None
+    in
+    let completion_callback partial_line ln_completions =
       if partial_line <> ""
       then
         List.filter
@@ -137,7 +142,8 @@ You can exit the REPL with either [exit] or [CTRL+D]
         Ocamline.read
           ~prompt:"iPCF>"
           ~brackets:[ '(', ')' ]
-          ~completion_callback:comp_callback
+          ~completion_callback
+          ~hints_callback
           ()
       with
       | End_of_file -> ":quit"
@@ -146,6 +152,19 @@ You can exit the REPL with either [exit] or [CTRL+D]
     let args = String.trim line |> String.split_on_char ' ' in
     match List.hd args with
     | "" -> loop ctx
+    | ":help" | ":h" ->
+      ANSITerminal.(
+        printf [ magenta ] "Commands available:\n";
+        printf [ green ] ":help\t";
+        printf [ blue ] "Print out this help message\n";
+        printf [ green ] ":quit\t";
+        printf [ blue ] "Quit out of the interpreter\n";
+        printf [ green ] ":ctx\t";
+        printf [ blue ] "Print out all the intems in the current context\n";
+        printf [ green ] ":load\t";
+        printf [ blue ] "Load sequence of interpreter commands from a file\n");
+      Printf.printf "%!";
+      loop ctx
     | ":quit" -> ()
     | ":ctx" ->
       let f =
