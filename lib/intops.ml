@@ -18,7 +18,7 @@ module Operations (E : Moduletypes.Eval) = struct
     | IsApp -> `Arrow (`Box `Var, `Box (`Ground `Bool))
     | IsAbs -> `Arrow (`Box `Var, `Box (`Ground `Bool))
     | NumberOfVars -> `Arrow (`Box `Var, `Box (`Ground `Nat))
-    | IsNormalForm -> `Arrow (`Box `Var, `Box (`Ground `Bool))
+    | IsNormalForm -> `Arrow (`Box `Var, `Ground `Bool)
     | Tick -> `Arrow (`Box `Var, `Box `Var)
   ;;
 
@@ -65,7 +65,7 @@ module Operations (E : Moduletypes.Eval) = struct
   and is_normal_form = function
     | Box e ->
       let e' = E.reduce e in
-      Parser.Box (Const (Bool (e = e')))
+      Parser.(Const (Bool (e = e')))
     | _ ->
       raise
         (Invalid_argument
@@ -82,12 +82,12 @@ module Operations (E : Moduletypes.Eval) = struct
   ;;
 
   (*
-  let%test "is_normal_form" =
-    (is_normal_form Parser.(Box (App (Abs (Var None), Const (Bool true))))
+     let%test "is_normal_form" =
+     (is_normal_form Parser.(Box (App (Abs (Var None), Const (Bool true))))
      = Parser.(Box (Const (Bool false))))
-    && is_normal_form Parser.(Box (Const (Bool true)))
-       = Parser.(Box (Const (Bool true)))
-  ;;
+     && is_normal_form Parser.(Box (Const (Bool true)))
+     = Parser.(Box (Const (Bool true)))
+     ;;
   *)
 
   let%test "number_of_vars" =
