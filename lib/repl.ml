@@ -35,7 +35,7 @@ exception Unbound_variable of string
 let assign_re = Re.Perl.compile_pat {|^(\w+)\s*:=\s*(.*)$|}
 
 (** [evaluate ctx term] evaluates [term] assuming the context [ctx] *)
-let evaluate ctx term =
+let evaluate ?(type_only = false) ctx term =
   (* Lexing *)
   let& tokens = Lexer.lex term in
   (* Parsing *)
@@ -52,8 +52,11 @@ let evaluate ctx term =
   (* Type inference *)
   let+ t = Typing.infer_type Typing.init_context ast in
   (* Evaluation *)
-  let eval_res = EvalImpl.reduce ast in
-  Ok (eval_res, t, ctx)
+  if type_only
+  then Ok (ast, t, ctx)
+  else (
+    let eval_res = EvalImpl.reduce ast in
+    Ok (eval_res, t, ctx))
 ;;
 
 let print ?(debug = false) ?(ident = None) term type_ =
@@ -83,7 +86,7 @@ let print_error error =
   Printf.printf "\n%!"
 ;;
 
-let handle_line ?(debug = false) ctx line =
+let handle_line ?(type_only = false) ?(debug = false) ctx line =
   let matches = Re.all assign_re line in
   if List.length matches = 1
   then (
@@ -91,7 +94,7 @@ let handle_line ?(debug = false) ctx line =
     let m = List.hd matches in
     let ident = Re.Group.get m 1 in
     let term = Re.Group.get m 2 in
-    let res = evaluate ctx term in
+    let res = evaluate ~type_only:true ctx term in
     let ctx =
       match res with
       | Ok (term, type_, ctx) ->
@@ -105,7 +108,7 @@ let handle_line ?(debug = false) ctx line =
     ctx)
   else (
     (* Evaluation *)
-    let res = evaluate ctx line in
+    let res = evaluate ~type_only ctx line in
     (match res with
      | Ok (term, type_, _) -> print ~debug term type_
      | Error e -> print_error e);
@@ -188,6 +191,9 @@ You can exit the REPL with either [:quit] or [CTRL+D]
       in
       int_terms |> f;
       loop ctx
+    | ":t" ->
+      let line = List.tl args in
+      handle_line ~type_only:true ~debug ctx (String.concat " " line) |> loop
     | ":load" | ":l" ->
       (match List.nth_opt args 1 with
        | Some filename ->
