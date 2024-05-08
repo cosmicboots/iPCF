@@ -20,12 +20,12 @@ let%test "subst" =
 ;;
 
 module Reduction (Ops : Moduletypes.Ops) = struct
-  (** [root_reduction t] applies a single root reduction rule to [t].*)
-  let root_reduction =
+  (** [redstep t] applies a single root reduction rule to [t].*)
+  let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
     Parser.(
       function
       | App (Abs s, t) -> subst s t (* Beta reduction *)
-      | App (IntOp op, t) -> Ops.exec op t
+      | App (IntOp op, (Box _ as t)) -> Ops.exec op t
       | Unbox (Box m, n) -> subst n m
       | Fix m -> subst m (Box (Fix m))
       | Succ (Const (Nat n)) -> Const (Nat (n + 1))
@@ -34,26 +34,20 @@ module Reduction (Ops : Moduletypes.Ops) = struct
       | IsZero (Const (Nat _)) -> Const (Bool false)
       | IfThenElse (Const (Bool true), t, _) -> t
       | IfThenElse (Const (Bool false), _, f) -> f
-      | t -> t)
-  ;;
-
-  (** [redstep t] maps the root reduction steps over the term [t] once. *)
-  let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
-    fun t ->
-    let red = root_reduction t in
-    match red with
-    | App (x, y) -> App (redstep x, redstep y)
-    | IfThenElse (c, t, e) -> IfThenElse (redstep c, t, e)
-    | Var _ as v -> v
-    | Const _ as c -> c
-    | Abs s -> Abs (redstep s)
-    | Box m -> Box (redstep m)
-    | Unbox (m, n) -> Unbox (redstep m, redstep n)
-    | Fix m -> Fix (redstep m)
-    | Succ x -> Succ (redstep x)
-    | Pred x -> Pred (redstep x)
-    | IsZero x -> IsZero (redstep x)
-    | IntOp _ as x -> x
+      | t ->
+        (match t with
+         | App (x, y) -> App (redstep x, redstep y)
+         | IfThenElse (c, t, e) -> IfThenElse (redstep c, t, e)
+         | Var _ as v -> v
+         | Const _ as c -> c
+         | Abs s -> Abs (redstep s)
+         | Box _ as m -> m
+         | Unbox (m, n) -> Unbox (redstep m, redstep n)
+         | Fix m -> Fix (redstep m)
+         | Succ x -> Succ (redstep x)
+         | Pred x -> Pred (redstep x)
+         | IsZero x -> IsZero (redstep x)
+         | IntOp _ as x -> x))
   ;;
 
   let%test "single reduction step" =

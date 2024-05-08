@@ -56,10 +56,12 @@ let evaluate ctx term =
   Ok (eval_res, t, ctx)
 ;;
 
-let print ?(debug = false) term type_ =
+let print ?(debug = false) ?(ident = None) term type_ =
   let eval_str =
     if debug then [%show: string Parser.terms] term else Parser.show_terms term
   in
+  (if Option.is_some ident
+   then ANSITerminal.(printf [ magenta ] "%s := " (Option.get ident)));
   ANSITerminal.(
     printf [ magenta ] "%s" eval_str;
     printf [ blue ] " : ";
@@ -94,7 +96,7 @@ let handle_line ?(debug = false) ctx line =
       match res with
       | Ok (term, type_, ctx) ->
         let ctx = Context.add ident term ctx in
-        print (Var ident) type_;
+        print ~ident:(Some ident) ~debug term type_;
         ctx
       | Error e ->
         print_error e;
@@ -194,7 +196,7 @@ You can exit the REPL with either [:quit] or [CTRL+D]
             let rec f ic ctx =
               try
                 let line = input_line ic in
-                f ic @@ handle_line ctx line
+                f ic @@ handle_line ~debug ctx line
               with
               | End_of_file ->
                 close_in_noerr ic;
