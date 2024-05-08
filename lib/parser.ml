@@ -121,6 +121,8 @@ let parse (input : Lexer.t list) =
     (* === Reduction rules === *)
     (* Parentheses *)
     | i, Tok Lexer.Rparen :: PE x :: Tok Lexer.Lparen :: r -> sr i (PE x :: r)
+    (* IsZero *)
+    | Lexer.IsZero :: i, PE e :: r -> sr i (PE (IsZero e) :: r)
     (* Application *)
     | i, PE y :: PE x :: r -> sr i (PE (App (x, y)) :: r)
     (* If statement *)
@@ -145,8 +147,6 @@ let parse (input : Lexer.t list) =
     (* Add and mult TODO *)
     | i, PE y :: Tok Lexer.Plus :: PE x :: r -> sr i (PE (Add (x, y)) :: r)
     | i, PE y :: Tok Lexer.Star :: PE x :: r -> sr i (PE (Mult (x, y)) :: r)
-    (* IsZero *)
-    | i, Tok Lexer.IsZero :: PE e :: r -> sr i (PE (IsZero e) :: r)
     (* Arbitrary number literals *)
     | i, Tok (Lexer.Number n) :: r -> sr i (PE (Const (Nat n)) :: r)
     (* Box *)
@@ -224,6 +224,10 @@ Got:      %s
       run_test
         {|1 + (2 * 3)|}
         (Add (Const (Nat 1), Mult (Const (Nat 2), Const (Nat 3))))
+    ;;
+
+    let%test "postfix" =
+      run_test {|(\x . x) 1?|} (App (Abs (Var None), IsZero (Const (Nat 1))))
     ;;
 
     let%test {|\f . \x . f ( x )|} =
