@@ -1,5 +1,8 @@
+# Basic math. They work, but are computationally inefficient
 add := Y (\add . \n . \m . if m? then n else succ (add n (pred m)))
 mul := Y (\mul . \n . \m . if m? then 0 else (add n (mul n (pred m))))
+
+# Basic recursion using the Y combinator (defined in fixed-point.ipcf)
 fact := Y (\fact . \n . if n? then 1 else (n * (fact (pred n))))
 or := \x . \y . if x then true else y
 fib := Y (\fib . \x . if (or x? (pred x)?) then 1 else ((fib (pred x)) + (fib (pred (pred x)))))

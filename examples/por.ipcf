@@ -1,3 +1,11 @@
+## Or Operators
+# Left Or checks the left argument first
 lor := \x . \y . if x then true else y
+# Right Or checks the right argument first
 ror := \x . \y . if y then true else x
+
+## Parallel Or.
+#
+# Performs reduction of left and right term in parallel until one side
+# evaluates to true
 por := Y (\por. \x . \y . if (isNormalForm x) then (lor (eval x) (eval y)) else (if (isNormalForm y) then (ror (eval x) (eval y)) else (por (tick x) (tick y))))

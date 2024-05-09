@@ -242,7 +242,9 @@ You can exit the REPL with either [:quit] or [CTRL+D]
             let rec f ic ctx =
               try
                 let line = input_line ic in
-                f ic @@ handle_line ~debug ctx line
+                if line <> "" && line.[0] <> '#'
+                then f ic @@ handle_line ~debug ctx line
+                else f ic ctx
               with
               | End_of_file ->
                 close_in_noerr ic;

@@ -1,7 +1,20 @@
+# Term sufficiently complex to require a few reduction steps to evaluate
 t := box ((\x . if x then 4 else 5) ((\x . x) true))
+
+# Apply a single reduction step
 t1 := tick t
+
+# Check if it's in normal form
 isNormalForm t1
-t3 := tick t1
+
+# Apply another reduction step
+t2 := tick t1
+
+# Check if it's in normal form
+isNormalForm t2
+
+# Apply another reduction step
+t3 := tick t2
+
+# Check if it's in normal form
 isNormalForm t3
-t5 := tick t3
-isNormalForm t5
