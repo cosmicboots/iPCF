@@ -134,6 +134,8 @@ let completion_callback ctx partial_line ln_completions =
         |> List.filter (fun x ->
           Filename.check_suffix x ".ipcf" || Sys.is_directory x)
         |> List.map (fun x -> Filename.concat dir x)
+        |> List.filter (fun itm ->
+          String.starts_with ~prefix:partial_line @@ List.hd args ^ " " ^ itm)
       with
       | Sys_error _ -> [])
     else []
