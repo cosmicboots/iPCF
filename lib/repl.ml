@@ -115,6 +115,47 @@ let handle_line ?(type_only = false) ?(debug = false) ctx line =
     ctx)
 ;;
 
+let completion_callback ctx partial_line ln_completions =
+  let args = String.split_on_char ' ' partial_line in
+  let files =
+    if List.length args > 1 && (List.hd args = ":load" || List.hd args = ":l")
+    then (
+      try
+        let filepath = String.concat " " @@ List.tl args in
+        let dir =
+          if Sys.file_exists filepath
+             && Sys.is_directory filepath
+             && String.ends_with ~suffix:"/" filepath
+          then filepath
+          else Filename.dirname filepath
+        in
+        Sys.readdir dir
+        |> Array.to_list
+        |> List.filter (fun x ->
+          Filename.check_suffix x ".ipcf" || Sys.is_directory x)
+        |> List.map (fun x -> Filename.concat dir x)
+      with
+      | Sys_error _ -> [])
+    else []
+  in
+  if List.length files > 0
+  then
+    Printf.printf
+      "\r\n%s\n%!"
+      (String.concat "\t" @@ List.map Filename.basename files);
+  if partial_line <> ""
+  then
+    List.filter
+      (fun x ->
+        String.starts_with
+          ~prefix:(String.lowercase_ascii partial_line)
+          (String.lowercase_ascii x))
+      (List.map (fun (k, _) -> k) @@ Context.bindings ctx
+       |> List.append Parser.IntOps.idents
+       |> List.append (List.map (fun itm -> List.hd args ^ " " ^ itm) files))
+    |> List.iter (LNoise.add_completion ln_completions)
+;;
+
 let run debug =
   print_endline
     {|
@@ -130,24 +171,12 @@ You can exit the REPL with either [:quit] or [CTRL+D]
       then Some ("<filepath>", LNoise.Cyan, false)
       else None
     in
-    let completion_callback partial_line ln_completions =
-      if partial_line <> ""
-      then
-        List.filter
-          (fun x ->
-            String.starts_with
-              ~prefix:(String.lowercase_ascii partial_line)
-              (String.lowercase_ascii x))
-          (List.map (fun (k, _) -> k) @@ Context.bindings ctx
-           |> List.append Parser.IntOps.idents)
-        |> List.iter (LNoise.add_completion ln_completions)
-    in
     let line =
       try
         Ocamline.read
           ~prompt:"iPCF>"
           ~brackets:[ '(', ')' ]
-          ~completion_callback
+          ~completion_callback:(completion_callback ctx)
           ~hints_callback
           ()
       with
