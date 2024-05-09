@@ -1,3 +1,5 @@
+let reduction_count = ref 0
+
 (** [subst s t] substitutes the the term [t] in the term [s].
 
     This is the shown as [s[t/x]] in written notation where [x] is a variable
@@ -22,8 +24,10 @@ let%test "subst" =
 module Reduction (Ops : Moduletypes.Ops) = struct
   (** [redstep t] applies a single root reduction rule to [t].*)
   let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
+    fun term ->
+    reduction_count := !reduction_count + 1;
     Parser.(
-      function
+      match term with
       | App (Abs s, t) -> subst s t (* Beta reduction *)
       | App (IntOp op, (Box _ as t)) -> Ops.exec op t
       | Unbox (Box m, n) -> subst n m
@@ -40,6 +44,8 @@ module Reduction (Ops : Moduletypes.Ops) = struct
       | IfThenElse (Const (Bool true), t, _) -> t
       | IfThenElse (Const (Bool false), _, f) -> f
       | t ->
+        (* Correct count for no reduction *)
+        reduction_count := !reduction_count - 1;
         (match t with
          | App (x, y) -> App (redstep x, redstep y)
          | IfThenElse (c, t, e) -> IfThenElse (redstep c, t, e)

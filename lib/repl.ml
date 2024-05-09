@@ -87,6 +87,7 @@ let print_error error =
 ;;
 
 let handle_line ?(type_only = false) ?(debug = false) ctx line =
+  Evaluator.reduction_count := 0;
   let matches = Re.all assign_re line in
   if List.length matches = 1
   then (
@@ -236,6 +237,14 @@ You can exit the REPL with either [:quit] or [CTRL+D]
       else (
         let line = List.tl args in
         handle_line ~type_only:true ~debug ctx (String.concat " " line) |> loop)
+    | ":redct" ->
+      ANSITerminal.(
+        printf
+          [ magenta ]
+          "Reduction count: %d\n"
+          !Evaluator.reduction_count;
+        Printf.printf "%!");
+      loop ctx
     | ":load" | ":l" ->
       (match List.nth_opt args 1 with
        | Some filename ->

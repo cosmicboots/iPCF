@@ -66,7 +66,7 @@ module Operations (E : Moduletypes.Eval) = struct
   (* This function takes [string Parser.terms] which would be the type of closed terms *)
   and is_normal_form = function
     | Box e ->
-      let e' = E.reduce e in
+      let e' = E.redstep e in
       Parser.(Const (Bool (e = e')))
     | _ ->
       raise
