@@ -142,7 +142,11 @@ let completion_callback ctx partial_line ln_completions =
   then
     Printf.printf
       "\r\n%s\n%!"
-      (String.concat "\t" @@ List.map Filename.basename files);
+      ANSITerminal.(
+        sprintf
+          [ blue ]
+          "%s"
+          (String.concat "\t" @@ List.map Filename.basename files));
   if partial_line <> ""
   then
     List.filter
