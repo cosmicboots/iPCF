@@ -7,6 +7,8 @@ type ground_terms =
 [@@deriving show { with_path = false }, eq, ord]
 
 module IntOps = struct
+  (** Intensional operations *)
+
   type t =
     | IsApp
     | IsAbs
@@ -15,18 +17,26 @@ module IntOps = struct
     | Tick
   [@@deriving show { with_path = false }, eq, ord]
 
-  let of_string = function
-    | "isApp" -> Some IsApp
-    | "isAbs" -> Some IsAbs
-    | "numberOfVars" -> Some NumberOfVars
-    | "isNormalForm" -> Some IsNormalForm
-    | "tick" -> Some Tick
-    | _ -> None
+  (** [map] is an associated list of intensional operations from their string
+      representation. *)
+  let map =
+    [ "isApp", IsApp
+    ; "isAbs", IsAbs
+    ; "numberOfVars", NumberOfVars
+    ; "isNormalForm", IsNormalForm
+    ; "tick", Tick
+    ]
   ;;
 
-  let idents = [ "isApp"; "isAbs"; "numberOfVars"; "isNormalForm"; "tick" ]
+  (** [of_string s] converts [s] to an intensional operation. *)
+  let of_string s = List.assoc_opt s map
+
+  (** [idents] is a list of all the intensional operation string
+      representations. *)
+  let idents = List.map fst map
 end
 
+(** ['a terms] is the type of lambda terms. *)
 type 'a terms =
   (* Basic lambda terms *)
   | Var of 'a
@@ -46,6 +56,7 @@ type 'a terms =
   | IntOp of IntOps.t
 [@@deriving show { with_path = false }, eq, ord]
 
+(** [show_terms a] returns a pretty formatted string of [a]. *)
 let show_terms a =
   let rec pp_terms' (a : string terms) =
     match a with
@@ -108,11 +119,14 @@ let capture ident term =
     term
 ;;
 
+(** A wrapper to hold parsed expressions and lexer tokens during the parsing
+    step *)
 type 'a wrapped_token =
   | Tok of Lexer.t
   | PE of 'a terms
 [@@deriving show]
 
+(** [parse input] is the result of parsing the input tokens [input]. *)
 let parse (input : Lexer.t list) =
   (* [sr i s] shift-reduce parses the input tokens [i] onto the output stack
      [s] *)

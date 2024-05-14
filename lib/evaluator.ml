@@ -22,6 +22,8 @@ let%test "subst" =
 ;;
 
 module Reduction (Ops : Moduletypes.Ops) = struct
+  (** The reduction/evaluation module *)
+
   (** [redstep t] applies a single root reduction rule to [t].*)
   let rec redstep : 'a. 'a Parser.terms -> 'a Parser.terms =
     fun term ->

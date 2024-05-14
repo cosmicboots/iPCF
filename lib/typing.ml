@@ -6,11 +6,15 @@ type type_error =
 [@@deriving show { with_path = false }]
 
 module Type = struct
+  (** Module for types *)
+
+  (** Possible primitive types *)
   type ground_type =
     | Nat
     | Bool
   [@@deriving show { with_path = false }, ord, eq]
 
+  (** Possible types *)
   type t =
     [ `Ground of ground_type
     | `Arrow of t * t
@@ -21,6 +25,8 @@ module Type = struct
     ]
   [@@deriving ord, eq]
 
+  (** [type_of_int x] returns converts a unique type variable [x] into a string
+      representation. *)
   let rec type_of_int x =
     let make code = String.make 1 (Char.chr (code + Char.code 'a')) in
     if x / 26 = 0 then make x else type_of_int ((x / 26) - 1) ^ make (x mod 26)
@@ -33,6 +39,7 @@ module Type = struct
       [ 0, "a"; 1, "b"; 25, "z"; 26, "aa"; 27, "ab"; 28, "ac"; 52, "ba" ]
   ;;
 
+  (** [show t] is the formatted string representation of the type [t]. *)
   let show t =
     let rec show' = function
       | `Ground x -> show_ground_type x
@@ -46,6 +53,7 @@ module Type = struct
     show' t
   ;;
 
+  (** [pp f t] pretty-prints the type [t] using the formatter [f]. *)
   let pp ppf t = Format.fprintf ppf "%s" (show t)
 end
 
@@ -54,8 +62,6 @@ module _ : Map.OrderedType = Type
 
 (** A type environment is a mapping from types to types *)
 module ConstraintCtx = struct
-  (*include Map.Make (Type) [@@deriving show]*)
-
   module TypeSetItem = struct
     type t = Type.t * Type.t [@@deriving ord]
   end
@@ -73,6 +79,9 @@ module ConstraintCtx = struct
   ;;
 end
 
+(** The next polymorphic variable identifier to be used.
+
+    This should NOT be used directly. use [get_var_id ()] instead. *)
 let next_var_id = ref 0
 
 (** [get_var_id ()] returns a fresh variable identifier and increments the
@@ -86,11 +95,16 @@ let get_var_id () =
 (** A context is a mapping from variables to types *)
 type 'a context = 'a -> (Type.t, type_error) result
 
+(** [init_context] constructs an empty initial typing contest. Useful for
+    tests. *)
 let init_context _ = Error Not_in_context
 
+(* Perform DI for cyclic dependency between intensional operations and the
+   evaluator. *)
 module rec IntOpsImpl : Moduletypes.Ops = Intops.Operations (EvalImpl)
 and EvalImpl : Moduletypes.Eval = Evaluator.Reduction (IntOpsImpl)
 
+(** [check ctx e] infers the type of the term [e] in the context [ctx]. *)
 let rec check
   : 'a.
   'a context
@@ -197,11 +211,14 @@ let rec check
     Ok (t, ConstraintCtx.add (a, t) c)
 ;;
 
-module SubstKey = struct
-  type t = [ `Var of int ] [@@deriving ord]
-end
-
 module SubstMap = struct
+  (** Module to hold the sequence of substitutions to be applied to generate a
+      principal type. *)
+
+  module SubstKey = struct
+    type t = [ `Var of int ] [@@deriving ord]
+  end
+
   include Map.Make (SubstKey)
 
   let _show m =
@@ -234,11 +251,9 @@ module SubstMap = struct
   ;;
 end
 
-type substitutions = Type.t SubstMap.t
-
 (** [subst_ctx subst ctx] applies the substitutions [subst] to the constraint
     context [ctx]. *)
-let subst_ctx : substitutions -> ConstraintCtx.t -> ConstraintCtx.t =
+let subst_ctx : Type.t SubstMap.t -> ConstraintCtx.t -> ConstraintCtx.t =
   fun subst ctx ->
   ConstraintCtx.map
     (fun (t1, t2) -> SubstMap.apply t1 subst, SubstMap.apply t2 subst)
@@ -256,6 +271,8 @@ let occurs_check x (t : Type.t) =
   occurs_check' x t
 ;;
 
+(** [unify ctx] solves the constraint context [ctx] and returns the
+    substitution that satisfies the constraints. *)
 let unify ctx =
   let rec unify' s ctx =
     match ConstraintCtx.choose_opt ctx with
@@ -330,6 +347,8 @@ let%test "check tests" =
     ]
 ;;
 
+(** [infer_type ctx e] infers the principal type of the term [e] in the context
+    [ctx]. *)
 let infer_type ctx e =
   (* Reset global state *)
   next_var_id := 0;

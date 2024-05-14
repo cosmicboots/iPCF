@@ -1,4 +1,6 @@
 module Operations (E : Moduletypes.Eval) = struct
+  (** This module defines the intensional operations for the language. *)
+
   include Parser.IntOps
 
   type gt =
@@ -14,6 +16,7 @@ module Operations (E : Moduletypes.Eval) = struct
     | `Var
     ]
 
+  (** [get_type o] returns the type of the intensional operation [o] *)
   let get_type = function
     | IsApp -> `Arrow (`Box `Var, `Box (`Ground `Bool))
     | IsAbs -> `Arrow (`Box `Var, `Box (`Ground `Bool))
@@ -23,6 +26,7 @@ module Operations (E : Moduletypes.Eval) = struct
   ;;
 
   (* Mutual recursion used to allow nested intensional operations *)
+  (** [exec op t] executes the intensional operation [op] on the term [t] *)
   let rec exec op t =
     match op with
     | IsApp -> is_app t
@@ -31,14 +35,20 @@ module Operations (E : Moduletypes.Eval) = struct
     | IsNormalForm -> is_normal_form t
     | Tick -> one_step_reduction t
 
+  (** The "is application" intensional operation to check if a boxed term is an
+      application *)
   and is_app : 'a. 'a Parser.terms -> 'a Parser.terms = function
     | Parser.Box (App _) -> Parser.(Box (Const (Bool true)))
     | _ -> Parser.(Box (Const (Bool false)))
 
+  (** The "is abstraction" intensional operation to check if a boxed term is an
+      abstraction *)
   and is_abs : 'a. 'a Parser.terms -> 'a Parser.terms = function
     | Parser.Box (Abs _) -> Parser.(Box (Const (Bool true)))
     | _ -> Parser.(Box (Const (Bool false)))
 
+  (** The "number of variables" intensional operation to count the number of
+      variables in a boxed term. [\x . \y . x y y] would have [3] variables. *)
   and number_of_vars : 'a. 'a Parser.terms -> 'a Parser.terms =
     fun t ->
     let rec f : 'a. 'a Parser.terms -> int =
@@ -63,7 +73,8 @@ module Operations (E : Moduletypes.Eval) = struct
     | Box t -> Parser.(Box (Const (Nat (f t))))
     | _ -> Parser.Const (Nat 0)
 
-  (* This function takes [string Parser.terms] which would be the type of closed terms *)
+  (** The "is normal form" intensional operation to check if a boxed term is in
+      normal form. *)
   and is_normal_form = function
     | Box e ->
       let e' = E.redstep e in
@@ -73,6 +84,8 @@ module Operations (E : Moduletypes.Eval) = struct
         (Invalid_argument
            "If this is reached, the typechecker failed elsewhere")
 
+  (** The "one step reduction" intensional operation to reduce a boxed term by
+      one step. *)
   and one_step_reduction = function
     | Parser.Box e ->
       let e' = E.redstep e in

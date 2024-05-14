@@ -41,19 +41,22 @@ let string_of_chars s = String.concat "" (List.map (String.make 1) s)
 (** [chars_of_string s] returns a list of characters from a string [s] *)
 let chars_of_string s = List.init (String.length s) (String.get s)
 
+(** [is_alpha c] returns true if [c] is an alphabetic character *)
 let is_alpha = function
   | 'a' .. 'z' | 'A' .. 'Z' -> true
   | _ -> false
 ;;
 
+(** [is_digit c] returns true if [c] is a digit *)
 let is_digit = function
   | '0' .. '9' -> true
   | _ -> false
 ;;
 
+(** [is_alphanum c] returns true if [c] is an alphanumeric character *)
 let is_alphanum c = is_alpha c || is_digit c
 
-(** Lexer *)
+(** [lex s] returns a list of tokens from a string [s]. *)
 let lex s =
   let rec f tokens = function
     | [] -> Ok (List.rev tokens)
